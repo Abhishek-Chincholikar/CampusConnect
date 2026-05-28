@@ -61,7 +61,7 @@ if (process.env.NODE_ENV !== 'test') {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'SIESCOMS Committees & Clubs Portal API',
+    service: 'CampusConnect API',
     timestamp: new Date().toISOString(),
   });
 });

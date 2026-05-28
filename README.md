@@ -1,6 +1,6 @@
-# SIESCOMS Committees & Clubs Portal
+# CampusConnect
 
-A premium MERN stack portal for SIESCOMS student clubs, committees, and applicant selection workflows.
+A premium MERN stack portal for SIESCOMS student committees, clubs, and applicant selection workflows.
 
 ## Structure
 

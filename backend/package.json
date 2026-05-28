@@ -1,7 +1,7 @@
 {
-  "name": "siescoms-portal-backend",
+  "name": "campusconnect-backend",
   "version": "1.0.0",
-  "description": "Backend API for the SIESCOMS Committees & Clubs Portal.",
+  "description": "Backend API for CampusConnect committee and club selection workflows.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -13,9 +13,9 @@
     "mern",
     "express",
     "mongoose",
-    "siescoms"
+    "campusconnect"
   ],
-  "author": "SIESCOMS",
+  "author": "CampusConnect",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",

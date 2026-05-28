@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: siescoms-portal-api
+    name: campusconnect-api
     runtime: node
     plan: free
     region: singapore
@@ -13,7 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: JWT_ISSUER
-        value: siescoms-portal
+        value: campusconnect
       - key: CORS_ORIGIN
         value: https://*.vercel.app
       - key: MONGO_URI

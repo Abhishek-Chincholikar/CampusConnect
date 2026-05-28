@@ -54,7 +54,7 @@ const getAuthToken = () => {
     return null;
   }
 
-  return window.localStorage.getItem('siescoms_token');
+  return window.localStorage.getItem('campusconnect_token');
 };
 
 const normalizeOrganization = (organization) => ({
@@ -338,10 +338,10 @@ function Dashboard() {
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-7 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-normal text-cardinal-700">
-              SIESCOMS
+              SIESCOMS Committees & Clubs
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-institute-ink sm:text-4xl">
-              Committees & Clubs Portal
+              CampusConnect
             </h1>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
