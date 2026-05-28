@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: siescoms-portal-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    buildCommand: cd backend && npm ci
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_ISSUER
+        value: siescoms-portal
+      - key: CORS_ORIGIN
+        value: https://*.vercel.app
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

@@ -1,0 +1,9 @@
+backend/node_modules
+frontend/node_modules
+backend/.env
+backend/api.stdout.log
+backend/api.stderr.log
+frontend/vite.stdout.log
+frontend/vite.stderr.log
+coverage
+.git
