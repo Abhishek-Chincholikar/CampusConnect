@@ -46,9 +46,20 @@ function App() {
     setSession(null);
   };
 
-  if (!session?.token) {
-    return <AuthScreen onAuthenticated={handleAuthenticated} />;
-  }
+ if (!session?.token) {
+  return (
+    <div
+      style={{
+        padding: '50px',
+        fontSize: '48px',
+        fontWeight: 'bold',
+        color: 'red'
+      }}
+    >
+      APP.JSX TEST
+    </div>
+  );
+}
 
   return <Dashboard session={session} onLogout={handleLogout} />;
 }
