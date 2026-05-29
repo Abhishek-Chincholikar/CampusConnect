@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { ArrowRight, GraduationCap, Loader2, LockKeyhole, UserRound } from 'lucide-react';
 import { API_BASE_URL } from '../config.js';
 
-const roles = ['Student', 'Head', 'Faculty'];
-
 function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({
@@ -132,27 +130,14 @@ function AuthScreen({ onAuthenticated }) {
                   <span className="text-sm font-semibold text-slate-700">Email</span>
                   <input
                     name="email"
+                    placeholder="abc.mca25@siescoms.sies.edu.in"
                     type="email"
                     value={form.email}
                     onChange={updateField}
+                    required
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-3 text-institute-ink outline-none transition focus:border-institute-blue focus:ring-2 focus:ring-institute-blue/20"
                     autoComplete="email"
                   />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">Role</span>
-                  <select
-                    name="role"
-                    value={form.role}
-                    onChange={updateField}
-                    className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-institute-ink outline-none transition focus:border-institute-blue focus:ring-2 focus:ring-institute-blue/20"
-                  >
-                    {roles.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
                 </label>
               </>
             ) : null}

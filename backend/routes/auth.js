@@ -5,8 +5,6 @@ const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-const VALID_ROLES = ['Student', 'Head', 'Faculty'];
-
 const createToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is required for authentication');
@@ -46,38 +44,62 @@ const sanitizeProfile = (user) => {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { Roll_Number, full_name, email, password, role } = req.body;
-    const normalizedRollNumber = normalizeRollNumber(Roll_Number);
+    const { Roll_Number, full_name, email, password } = req.body;
 
-    if (!normalizedRollNumber || !full_name || !password) {
+    const normalizedRollNumber =
+      normalizeRollNumber(Roll_Number);
+
+    if (
+      !email ||
+      !email
+        .toLowerCase()
+        .endsWith('@siescoms.sies.edu.in')
+    ) {
       return res.status(400).json({
-        message: 'Roll number, full name, and password are required',
+        message:
+          'Only SIESCOMS email addresses are allowed',
+      });
+    }
+
+    if (
+      !normalizedRollNumber ||
+      !full_name ||
+      !password
+    ) {
+      return res.status(400).json({
+        message:
+          'Roll number, full name and password are required',
       });
     }
 
     if (String(password).length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+      return res.status(400).json({
+        message:
+          'Password must be at least 8 characters',
+      });
     }
 
-    const existingUser = await User.findOne({ Roll_Number: normalizedRollNumber }).lean();
+    const existingUser =
+      await User.findOne({
+        Roll_Number: normalizedRollNumber,
+      }).lean();
 
     if (existingUser) {
-      return res.status(409).json({ message: 'A user with this roll number already exists' });
+      return res.status(409).json({
+        message:
+          'A user with this roll number already exists',
+      });
     }
-
-    const totalUsers = await User.estimatedDocumentCount();
-    const requestedRole = VALID_ROLES.includes(role) ? role : 'Student';
-    const allowRoleRegistration = process.env.ALLOW_ROLE_REGISTRATION === 'true';
-    const assignedRole = totalUsers === 0 || allowRoleRegistration ? requestedRole : 'Student';
 
     const user = new User({
       Roll_Number: normalizedRollNumber,
       full_name,
       email,
-      role: assignedRole,
+      role: 'Student',
     });
 
     user.setPassword(password);
+
     await user.save();
 
     const token = createToken(user);
