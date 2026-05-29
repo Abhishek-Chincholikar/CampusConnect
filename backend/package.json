@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "lint": "node --check server.js && node --check config/db.js && node --check middleware/auth.js && node --check middleware/errorHandler.js && node --check models/User.js && node --check models/Organization.js && node --check models/JoinRequest.js && node --check routes/applications.js && node --check routes/organizations.js"
+    "lint": "node --check server.js && node --check config/db.js && node --check middleware/auth.js && node --check middleware/errorHandler.js && node --check models/User.js && node --check models/Organization.js && node --check models/JoinRequest.js && node --check routes/auth.js && node --check routes/applications.js && node --check routes/organizations.js"
   },
   "keywords": [
     "mern",

@@ -11,7 +11,7 @@ const authenticate = async (req, res, next) => {
 
     const token = header.slice(7).trim();
     const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-      issuer: process.env.JWT_ISSUER || 'siescoms-portal',
+      issuer: process.env.JWT_ISSUER || 'campusconnect',
     });
 
     const user = await User.findById(decoded.sub).select('-__v');

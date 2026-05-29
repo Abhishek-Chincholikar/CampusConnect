@@ -8,6 +8,39 @@ const { authenticate, authorizeRoles } = require('../middleware/auth');
 const router = express.Router();
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const REVIEW_STATUSES = ['Pending', 'Tech_Round', 'Interview', 'Voting', 'Rejected'];
+
+const populateApplication = (query) =>
+  query
+    .populate('user', 'full_name Roll_Number role joined_clubs joined_committee')
+    .populate('organization', 'name type max_capacity faculty_coordinator');
+
+router.get('/', authenticate, authorizeRoles('Head', 'Faculty'), async (req, res, next) => {
+  try {
+    const { status, organizationId } = req.query;
+    const filter = {};
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (organizationId) {
+      if (!isValidObjectId(organizationId)) {
+        return res.status(400).json({ message: 'Invalid organization id' });
+      }
+
+      filter.organization = organizationId;
+    }
+
+    const applications = await populateApplication(
+      JoinRequest.find(filter).sort({ updatedAt: -1 })
+    ).lean();
+
+    return res.json({ data: applications });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get('/me', authenticate, async (req, res, next) => {
   try {
@@ -66,6 +99,61 @@ router.post('/', authenticate, authorizeRoles('Student', 'Head'), async (req, re
     return next(error);
   }
 });
+
+router.put(
+  '/:id/status',
+  authenticate,
+  authorizeRoles('Head', 'Faculty'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { status, remarks } = req.body;
+
+      if (!isValidObjectId(id)) {
+        return res.status(400).json({ message: 'Invalid application id' });
+      }
+
+      if (status === 'Approved') {
+        return res.status(400).json({
+          message: 'Use the approval endpoint so capacity and committee rules are enforced',
+        });
+      }
+
+      if (!REVIEW_STATUSES.includes(status)) {
+        return res.status(400).json({ message: 'Invalid application status' });
+      }
+
+      const application = await JoinRequest.findById(id);
+
+      if (!application) {
+        return res.status(404).json({ message: 'Application request not found' });
+      }
+
+      if (application.status === 'Approved') {
+        return res.status(400).json({ message: 'Approved applications cannot be moved backward' });
+      }
+
+      application.status = status;
+
+      if (typeof remarks === 'string') {
+        application.remarks = remarks.trim();
+      }
+
+      await application.save();
+
+      const updatedApplication = await populateApplication(
+        JoinRequest.findById(application._id)
+      ).lean();
+
+      return res.json({
+        message: 'Application status updated',
+        data: updatedApplication,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 router.put(
   '/:id/approve',
@@ -153,9 +241,9 @@ router.put(
         await applicant.save({ session });
         await joinRequest.save({ session });
 
-        approvedRequest = await JoinRequest.findById(joinRequest._id)
-          .populate('user', 'full_name Roll_Number role joined_clubs joined_committee')
-          .populate('organization', 'name type max_capacity faculty_coordinator')
+        approvedRequest = await populateApplication(
+          JoinRequest.findById(joinRequest._id)
+        )
           .session(session)
           .lean();
       });

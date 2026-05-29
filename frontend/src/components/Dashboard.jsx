@@ -4,15 +4,16 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   GraduationCap,
   Loader2,
+  LogOut,
   ShieldCheck,
   UsersRound,
   XCircle,
 } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '../config.js';
 
 const statusStyles = {
   Pending: {
@@ -49,14 +50,6 @@ const statusStyles = {
 
 const formatNumber = new Intl.NumberFormat('en-IN');
 
-const getAuthToken = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  return window.localStorage.getItem('campusconnect_token');
-};
-
 const normalizeOrganization = (organization) => ({
   id: organization._id || organization.id,
   name: organization.name,
@@ -72,7 +65,11 @@ const normalizeApplication = (application) => ({
   organizationId:
     application.organization?._id || application.organization?.id || application.organization,
   organizationName: application.organization?.name || 'Organization',
+  applicantName: application.user?.full_name || '',
+  applicantRollNumber: application.user?.Roll_Number || '',
+  applicantRole: application.user?.role || '',
   status: application.status,
+  remarks: application.remarks || '',
   updatedAt: application.updatedAt,
 });
 
@@ -110,7 +107,7 @@ function StatusPill({ status, count }) {
   );
 }
 
-function OrganizationCard({ organization, application, onApply, isApplying }) {
+function OrganizationCard({ organization, application, onApply, isApplying, canApply }) {
   const filledPercentage =
     organization.maxCapacity > 0
       ? Math.min(100, Math.round((organization.acceptedMembers / organization.maxCapacity) * 100))
@@ -193,12 +190,18 @@ function OrganizationCard({ organization, application, onApply, isApplying }) {
         <button
           type="button"
           onClick={() => onApply(organization.id)}
-          disabled={Boolean(application) || isFull || isApplying}
+          disabled={!canApply || Boolean(application) || isFull || isApplying}
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-institute-navy px-4 text-sm font-semibold text-white transition hover:bg-institute-blue focus:outline-none focus:ring-2 focus:ring-institute-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
           aria-label={`Apply for ${organization.name}`}
         >
           {isApplying ? <Loader2 aria-hidden="true" className="animate-spin" size={18} /> : null}
-          <span>{isApplying ? 'Submitting Application' : 'Apply for Selection Process'}</span>
+          <span>
+            {!canApply
+              ? 'Review Access Only'
+              : isApplying
+                ? 'Submitting Application'
+                : 'Apply for Selection Process'}
+          </span>
           {!isApplying ? <ArrowUpRight aria-hidden="true" size={17} /> : null}
         </button>
       </div>
@@ -206,15 +209,113 @@ function OrganizationCard({ organization, application, onApply, isApplying }) {
   );
 }
 
-function Dashboard() {
+function ReviewPanel({ applications, onStatusChange, loadingActionId }) {
+  const actions = ['Tech_Round', 'Interview', 'Voting', 'Approved', 'Rejected'];
+
+  return (
+    <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-normal text-institute-ink">
+            Applicant Review
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            Head and faculty workflow for selection rounds.
+          </p>
+        </div>
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-institute-blue">
+          <ClipboardList aria-hidden="true" size={20} />
+        </span>
+      </div>
+
+      {applications.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <thead>
+              <tr className="text-slate-500">
+                <th className="whitespace-nowrap px-3 py-3 font-semibold">Applicant</th>
+                <th className="whitespace-nowrap px-3 py-3 font-semibold">Organization</th>
+                <th className="whitespace-nowrap px-3 py-3 font-semibold">Status</th>
+                <th className="whitespace-nowrap px-3 py-3 font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {applications.map((application) => {
+                const config = statusStyles[application.status] || statusStyles.Pending;
+                const StatusIcon = config.icon;
+
+                return (
+                  <tr key={application.id} className="align-top">
+                    <td className="px-3 py-4">
+                      <p className="font-semibold text-institute-ink">
+                        {application.applicantName}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        {application.applicantRollNumber}
+                      </p>
+                    </td>
+                    <td className="px-3 py-4">
+                      <p className="font-semibold text-slate-700">
+                        {application.organizationName}
+                      </p>
+                    </td>
+                    <td className="px-3 py-4">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ring-1 ${config.className}`}
+                      >
+                        <StatusIcon aria-hidden="true" size={14} />
+                        {config.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {actions.map((action) => (
+                          <button
+                            key={action}
+                            type="button"
+                            disabled={
+                              loadingActionId === application.id ||
+                              application.status === 'Approved' ||
+                              application.status === action
+                            }
+                            onClick={() => onStatusChange(application.id, action)}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-institute-blue hover:text-institute-blue disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                          >
+                            {statusStyles[action]?.label || action}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-300 px-5 py-8 text-center">
+          <p className="font-semibold text-institute-ink">No applications submitted</p>
+          <p className="mt-2 text-sm text-slate-500">Applicant records will appear here.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Dashboard({ session, onLogout }) {
   const [organizations, setOrganizations] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [reviewApplications, setReviewApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applyingOrganizationId, setApplyingOrganizationId] = useState(null);
+  const [reviewActionId, setReviewActionId] = useState(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
-  const token = getAuthToken();
+  const token = session?.token;
+  const user = session?.user;
+  const canReview = ['Head', 'Faculty'].includes(user?.role);
+  const canApply = ['Student', 'Head'].includes(user?.role);
 
   const request = useCallback(
     async (path, options = {}) => {
@@ -254,15 +355,25 @@ function Dashboard() {
       if (token) {
         const applicationsResponse = await request('/applications/me');
         setApplications((applicationsResponse.data || []).map(normalizeApplication));
+
+        if (canReview) {
+          const reviewApplicationsResponse = await request('/applications');
+          setReviewApplications(
+            (reviewApplicationsResponse.data || []).map(normalizeApplication)
+          );
+        } else {
+          setReviewApplications([]);
+        }
       } else {
         setApplications([]);
+        setReviewApplications([]);
       }
     } catch (loadError) {
       setError(loadError.message);
     } finally {
       setLoading(false);
     }
-  }, [request, token]);
+  }, [canReview, request, token]);
 
   useEffect(() => {
     loadDashboard();
@@ -315,6 +426,11 @@ function Dashboard() {
       return;
     }
 
+    if (!canApply) {
+      setError('Faculty accounts review applications and cannot submit student applications.');
+      return;
+    }
+
     setApplyingOrganizationId(organizationId);
 
     try {
@@ -332,6 +448,36 @@ function Dashboard() {
     }
   };
 
+  const handleReviewStatus = async (applicationId, status) => {
+    setNotice('');
+    setError('');
+    setReviewActionId(applicationId);
+
+    try {
+      const path =
+        status === 'Approved'
+          ? `/applications/${applicationId}/approve`
+          : `/applications/${applicationId}/status`;
+      const response = await request(path, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      const updatedApplication = normalizeApplication(response.data);
+
+      setReviewApplications((current) =>
+        current.map((application) =>
+          application.id === applicationId ? updatedApplication : application
+        )
+      );
+      setNotice(response.message || 'Application updated.');
+      await loadDashboard();
+    } catch (reviewError) {
+      setError(reviewError.message);
+    } finally {
+      setReviewActionId(null);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-institute-mist">
       <header className="border-b border-slate-200 bg-white">
@@ -344,9 +490,22 @@ function Dashboard() {
               CampusConnect
             </h1>
           </div>
-          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <Building2 aria-hidden="true" size={18} className="text-institute-blue" />
-            <span className="font-medium">Academic Year 2026</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <Building2 aria-hidden="true" size={18} className="text-institute-blue" />
+              <span className="font-medium">{user?.full_name}</span>
+              <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-institute-blue">
+                {user?.role}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-cardinal-600 hover:text-cardinal-700 focus:outline-none focus:ring-2 focus:ring-cardinal-600/30"
+            >
+              <LogOut aria-hidden="true" size={17} />
+              Sign Out
+            </button>
           </div>
         </div>
       </header>
@@ -412,6 +571,14 @@ function Dashboard() {
           </div>
         </section>
 
+        {canReview ? (
+          <ReviewPanel
+            applications={reviewApplications}
+            onStatusChange={handleReviewStatus}
+            loadingActionId={reviewActionId}
+          />
+        ) : null}
+
         <section className="mt-10">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
@@ -457,6 +624,7 @@ function Dashboard() {
                   application={applicationByOrganization.get(String(organization.id))}
                   onApply={handleApply}
                   isApplying={applyingOrganizationId === organization.id}
+                  canApply={canApply}
                 />
               ))}
             </div>

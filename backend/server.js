@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
+const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const organizationRoutes = require('./routes/organizations');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
@@ -67,6 +68,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 
 app.use(notFound);
