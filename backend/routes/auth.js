@@ -48,7 +48,12 @@ router.post('/register', async (req, res, next) => {
 
     const normalizedRollNumber =
       normalizeRollNumber(Roll_Number);
-
+    if (!/^(MCA|MMS)\d{5}$/i.test(normalizedRollNumber)) {
+      return res.status(400).json({
+        message:
+          'Roll number must be in format MCA25015 or MMS25015'
+      });
+    }
     if (
       !email ||
       !email

@@ -15,9 +15,16 @@ function AuthScreen({ onAuthenticated }) {
   const [error, setError] = useState('');
 
   const updateField = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
+  const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+        [name]:
+        name === 'Roll_Number'
+        ? value.toUpperCase()
+        : value,
+  }));
+};
 
   const submit = async (event) => {
     event.preventDefault();
@@ -107,6 +114,9 @@ function AuthScreen({ onAuthenticated }) {
                 name="Roll_Number"
                 value={form.Roll_Number}
                 onChange={updateField}
+                minLength={8}
+                maxLength={8}
+                style={{ textTransform: 'uppercase' }}
                 className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-3 text-institute-ink outline-none transition focus:border-institute-blue focus:ring-2 focus:ring-institute-blue/20"
                 autoComplete="username"
                 required
