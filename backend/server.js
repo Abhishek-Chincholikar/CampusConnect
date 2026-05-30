@@ -9,6 +9,8 @@ const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const organizationRoutes = require('./routes/organizations');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const announcementRoutes = require('./routes/announcements');
+const reportRoutes = require('./routes/reports');
 
 const app = express();
 
@@ -70,7 +72,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
-
+app.use('/api/announcements', announcementRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

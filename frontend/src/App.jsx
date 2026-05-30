@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import AuthScreen from './components/AuthScreen.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import AdminDashboard from './components/AdminDashboard.jsx';
 
 const SESSION_KEY = 'campusconnect_session';
 const TOKEN_KEY = 'campusconnect_token';
@@ -50,7 +51,21 @@ function App() {
   return <AuthScreen onAuthenticated={handleAuthenticated} />;
 }
 
-  return <Dashboard session={session} onLogout={handleLogout} />;
+ if (session.user.role === 'Admin') {
+  return (
+    <AdminDashboard
+      session={session}
+      onLogout={handleLogout}
+    />
+  );
+}
+
+return (
+  <Dashboard
+    session={session}
+    onLogout={handleLogout}
+  />
+);
 }
 
 export default App;
