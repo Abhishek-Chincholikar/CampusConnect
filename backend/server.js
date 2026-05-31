@@ -73,6 +73,12 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/reports', reportRoutes);
+app.get('/api/test', (req, res) => {
+  res.json({
+    announcementsLoaded: !!announcementRoutes,
+  });
+});
 app.use(notFound);
 app.use(errorHandler);
 

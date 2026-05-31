@@ -1,3 +1,4 @@
+console.log('announcements route file loaded');
 const express = require('express');
 const Announcement =
   require('../models/Announcement');
@@ -10,6 +11,7 @@ const {
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  console.log('GET announcements hit');
   const announcements =
     await Announcement.find()
       .sort({ createdAt: -1 });
