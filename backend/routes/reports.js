@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
-const Report = require('../models/Report');
+const Report = require('../models/Reports');
 const {
   authenticate,
   authorizeRoles,
