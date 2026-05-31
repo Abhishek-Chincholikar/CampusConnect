@@ -26,11 +26,15 @@ function AdminAnnouncements() {
       }
     );
 
-    if (response.ok) {
-      setTitle('');
-      setContent('');
-      alert('Announcement posted');
-    }
+    const data = await response.json();
+
+        if (response.ok) {
+            setTitle('');
+            setContent('');
+            alert('Announcement posted successfully');
+        } else {
+            alert(data.message || 'Failed to post announcement');
+        }
   };
 
   return (

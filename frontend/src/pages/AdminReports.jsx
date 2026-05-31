@@ -38,11 +38,15 @@ function AdminReports() {
         }
       );
 
-    if (response.ok) {
-      alert('Report uploaded');
-      setTitle('');
-      setFile(null);
-    }
+   const data = await response.json();
+
+        if (response.ok) {
+            alert('Report uploaded successfully');
+            setTitle('');
+            setFile(null);
+        } else {
+            alert(data.message || 'Upload failed');
+        }
   };
 
   return (
