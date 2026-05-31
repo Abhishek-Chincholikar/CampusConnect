@@ -15,6 +15,7 @@ const upload = multer({
 
 router.get('/', async (req, res) => {
   const reports = await Report.find()
+    .populate('organization','name')
     .populate('uploadedBy', 'full_name')
     .sort({ createdAt: -1 });
 
@@ -50,6 +51,7 @@ router.post(
       const report = await Report.create({
         title: req.body.title,
         fileUrl: result.secure_url,
+        organization:req.body.organization,
         uploadedBy: req.user._id,
       });
 

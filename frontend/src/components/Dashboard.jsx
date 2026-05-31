@@ -1,3 +1,6 @@
+import {
+ FaBell
+} from 'react-icons/fa';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpRight,
@@ -314,6 +317,7 @@ function Dashboard({ session, onLogout }) {
   const [showProfile, setShowProfile] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [reports, setReports] = useState([]);
+  const [showNotifications,setShowNotifications] = useState(false);
 
   const token = session?.token;
   const user = session?.user;
@@ -546,6 +550,42 @@ function Dashboard({ session, onLogout }) {
                 </div>
               )}
             </div>
+            <div className="relative">
+              <button onClick={() => setShowNotifications( !showNotifications)}
+                className="relative p-3 border rounded-lg bg-white">
+                <FaBell size={18} />
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-2">
+                  {announcements.length}
+                </span>
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-96 bg-white border rounded-lg shadow-lg p-4 z-50">
+                  <h3 className="font-bold mb-3">
+                    Announcements
+                  </h3>
+                  { announcements.length === 0 ? (
+                        <p>
+                          No announcements
+                        </p>
+                      ) : (announcements.map(
+                          (item) => (
+                            <div key={item._id} className="border-b py-3">
+                              <h4 className="font-semibold">
+                                {item.title}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {item.content}
+                              </p>
+                            </div>
+                          )
+                        )
+                      )
+                  }
+                </div>
+              )
+            }
+            </div>
+
             <button
               type="button"
               onClick={onLogout}
@@ -628,27 +668,6 @@ function Dashboard({ session, onLogout }) {
         ) : null}
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-bold mb-4">
-            Recent Announcements
-          </h2>
-
-          {announcements.map((announcement) => (
-            <div
-              key={announcement._id}
-              className="border rounded p-4 mb-3"
-            >
-              <h3 className="font-bold">
-                📢 {announcement.title}
-              </h3>
-
-              <p className="mt-2">
-                {announcement.content}
-              </p>
-            </div>
-          ))}
-
-        </section>
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-bold mb-4">
             Reports & Documents
           </h2>
           {reports.length === 0 ? (
@@ -663,6 +682,9 @@ function Dashboard({ session, onLogout }) {
                   <h3 className="font-semibold">
                     {report.title}
                   </h3>
+                  <p className="text-sm text-blue-600">
+                    {report.organization?.name}
+                  </p>
                   <p className="text-sm text-gray-500">
                     Uploaded by:
                     {' '}

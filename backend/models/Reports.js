@@ -12,6 +12,11 @@ const reportSchema = new mongoose.Schema(
       required: true,
     },
 
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+    },
+
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
