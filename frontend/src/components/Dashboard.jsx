@@ -311,6 +311,7 @@ function Dashboard({ session, onLogout }) {
   const [reviewActionId, setReviewActionId] = useState(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
 
   const token = session?.token;
   const user = session?.user;
@@ -491,12 +492,55 @@ function Dashboard({ session, onLogout }) {
             </h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              <Building2 aria-hidden="true" size={18} className="text-institute-blue" />
-              <span className="font-medium">{user?.full_name}</span>
-              <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-institute-blue">
-                {user?.role}
-              </span>
+            <div className="relative">
+              <button
+                onClick={() =>
+                  setShowProfile(!showProfile)}
+                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <Building2
+                  size={18}
+                  className="text-institute-blue"
+                />
+                <span className="font-medium">
+                  {user?.full_name}
+                </span>
+                <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-institute-blue">
+                  {user?.role}
+                </span>
+              </button>
+              {showProfile && (
+                <div className="absolute right-0 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg z-50">
+
+                  <h3 className="font-semibold mb-3">
+                    My Profile
+                  </h3>
+
+                  <p>
+                    <strong>Name:</strong>
+                    {' '}
+                    {user?.full_name}
+                  </p>
+
+                  <p>
+                    <strong>Roll No:</strong>
+                    {' '}
+                    {user?.Roll_Number}
+                  </p>
+
+                  <p>
+                    <strong>Email:</strong>
+                    {' '}
+                    {user?.email}
+                  </p>
+
+                  <p>
+                    <strong>Role:</strong>
+                    {' '}
+                    {user?.role}
+                  </p>
+
+                </div>
+              )}
             </div>
             <button
               type="button"
@@ -552,46 +596,7 @@ function Dashboard({ session, onLogout }) {
             detail="Final approvals reflected in student profiles."
           />
         </div>
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">
-            My Profile
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-slate-500 text-sm">
-                Full Name
-              </p>
-              <p className="font-semibold">
-                {user?.full_name}
-              </p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm">
-                Roll Number
-              </p>
-              <p className="font-semibold">
-                {user?.Roll_Number}
-              </p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm">
-                Email
-              </p>
-              <p className="font-semibold">
-                {user?.email}
-              </p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm">
-                Role
-              </p>
-              <p className="font-semibold">
-                {user?.role}
-              </p>
-            </div>
-          </div>
-        </section>
+      
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
