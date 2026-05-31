@@ -1,4 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+import AdminUsers from './pages/AdminUsers.jsx';
+import AdminAnnouncements from './pages/AdminAnnouncements.jsx';
+import AdminReports from './pages/AdminReports.jsx';
+import AdminOrganizations from './pages/AdminOrganizations.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
@@ -53,10 +59,39 @@ function App() {
 
  if (session.user.role === 'Admin') {
   return (
-    <AdminDashboard
-      session={session}
-      onLogout={handleLogout}
-    />
+    <Routes>
+
+      <Route
+        path="/"
+        element={
+          <AdminDashboard
+            session={session}
+            onLogout={handleLogout}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={<AdminUsers />}
+      />
+
+      <Route
+        path="/admin/announcements"
+        element={<AdminAnnouncements />}
+      />
+
+      <Route
+        path="/admin/reports"
+        element={<AdminReports />}
+      />
+
+      <Route
+        path="/admin/organizations"
+        element={<AdminOrganizations />}
+      />
+
+    </Routes>
   );
 }
 
