@@ -312,6 +312,8 @@ function Dashboard({ session, onLogout }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [showProfile, setShowProfile] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [reports, setReports] = useState([]);
 
   const token = session?.token;
   const user = session?.user;
@@ -352,7 +354,10 @@ function Dashboard({ session, onLogout }) {
     try {
       const organizationsResponse = await request('/organizations');
       setOrganizations((organizationsResponse.data || []).map(normalizeOrganization));
-
+      const announcementsResponse = await request('/announcements');
+      setAnnouncements(announcementsResponse.data || []);
+      const reportsResponse = await request('/reports');
+      setReports(reportsResponse.data || []);
       if (token) {
         const applicationsResponse = await request('/applications/me');
         setApplications((applicationsResponse.data || []).map(normalizeApplication));
@@ -621,6 +626,61 @@ function Dashboard({ session, onLogout }) {
             loadingActionId={reviewActionId}
           />
         ) : null}
+        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-bold mb-4">
+            Recent Announcements
+          </h2>
+
+          {announcements.map((announcement) => (
+            <div
+              key={announcement._id}
+              className="border rounded p-4 mb-3"
+            >
+              <h3 className="font-bold">
+                📢 {announcement.title}
+              </h3>
+
+              <p className="mt-2">
+                {announcement.content}
+              </p>
+            </div>
+          ))}
+
+        </section>
+        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-bold mb-4">
+            Reports & Documents
+          </h2>
+          {reports.length === 0 ? (
+            <p>No reports uploaded.</p>
+          ) : (
+            reports.map((report) => (
+              <div
+                key={report._id}
+                className="border rounded p-4 mb-3 flex justify-between items-center"
+              >
+                <div>
+                  <h3 className="font-semibold">
+                    {report.title}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Uploaded by:
+                    {' '}
+                    {report.uploadedBy?.full_name}
+                  </p>
+                </div>
+                <a
+                  href={report.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                  Download
+                </a>
+              </div>
+            ))
+          )}
+        </section>
 
         <section className="mt-10">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

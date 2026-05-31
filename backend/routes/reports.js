@@ -2,7 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const Report = require('../models/Report');
-const { authenticate } = require('../middleware/auth');
+const {
+  authenticate,
+  authorizeRoles,
+} = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -15,12 +18,17 @@ router.get('/', async (req, res) => {
     .populate('uploadedBy', 'full_name')
     .sort({ createdAt: -1 });
 
-  res.json(reports);
+  res.json({
+  data: reports,
+  });
 });
 
 router.post(
   '/upload',
   authenticate,
+  authorizeRoles(
+  'Admin',
+  'Head'),
   upload.single('pdf'),
   async (req, res) => {
     try {
