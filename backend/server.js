@@ -8,9 +8,9 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const organizationRoutes = require('./routes/organizations');
-const { notFound, errorHandler } = require('./middleware/errorHandler');
 const announcementRoutes = require('./routes/announcements');
 const reportRoutes = require('./routes/reports');
+const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
