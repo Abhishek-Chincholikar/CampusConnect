@@ -552,7 +552,46 @@ function Dashboard({ session, onLogout }) {
             detail="Final approvals reflected in student profiles."
           />
         </div>
+        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">
+            My Profile
+          </h2>
 
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-slate-500 text-sm">
+                Full Name
+              </p>
+              <p className="font-semibold">
+                {user?.full_name}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm">
+                Roll Number
+              </p>
+              <p className="font-semibold">
+                {user?.Roll_Number}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm">
+                Email
+              </p>
+              <p className="font-semibold">
+                {user?.email}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm">
+                Role
+              </p>
+              <p className="font-semibold">
+                {user?.role}
+              </p>
+            </div>
+          </div>
+        </section>
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
