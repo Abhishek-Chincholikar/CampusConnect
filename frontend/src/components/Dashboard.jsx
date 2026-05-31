@@ -497,10 +497,9 @@ function Dashboard({ session, onLogout }) {
                 onClick={() =>
                   setShowProfile(!showProfile)}
                 className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <Building2
-                  size={18}
-                  className="text-institute-blue"
-                />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-institute-navy text-white font-semibold">
+                  {user?.full_name?.charAt(0)}
+                </div>
                 <span className="font-medium">
                   {user?.full_name}
                 </span>
