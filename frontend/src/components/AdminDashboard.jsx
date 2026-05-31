@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 function AdminDashboard({ session, onLogout }) {
+  const [activeTab, setActiveTab] = useState('users');
+
   return (
     <div className="p-8">
       <div className="flex justify-between">
@@ -21,25 +23,61 @@ function AdminDashboard({ session, onLogout }) {
           Logout
         </button>
       </div>
-
       <div className="grid grid-cols-2 gap-4 mt-8">
-
-        <div className="border p-4 rounded">
+        <button onClick={() => setActiveTab('users')} className="border p-4 rounded text-left hover:bg-slate-100">
           Manage Users
-        </div>
-
-        <div className="border p-4 rounded">
+        </button>
+        <button onClick={() => setActiveTab('announcements')} className="border p-4 rounded text-left hover:bg-slate-100">
           Announcements
-        </div>
-
-        <div className="border p-4 rounded">
+        </button>
+        <button onClick={() => setActiveTab('reports')} className="border p-4 rounded text-left hover:bg-slate-100">
           PDF Reports
-        </div>
-
-        <div className="border p-4 rounded">
+        </button>
+        <button onClick={() => setActiveTab('organizations')} className="border p-4 rounded text-left hover:bg-slate-100">
           Organizations
-        </div>
-
+        </button>
+      </div>
+      <div className="mt-8 border rounded p-6 bg-white">
+        {activeTab === 'users' && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">
+              User Management
+            </h2>
+            <p>
+              Promote Students to Head or Faculty.
+            </p>
+          </>
+        )}
+        {activeTab === 'announcements' && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">
+              Announcements
+            </h2>
+            <p>
+              Create and manage announcements.
+            </p>
+          </>
+        )}
+        {activeTab === 'reports' && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">
+              PDF Reports
+            </h2>
+            <p>
+              Upload and manage reports.
+            </p>
+          </>
+        )}
+        {activeTab === 'organizations' && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">
+              Organizations
+            </h2>
+            <p>
+              Create Clubs and Committees.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
