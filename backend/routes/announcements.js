@@ -24,19 +24,21 @@ router.get('/', async (req, res) => {
 router.post(
   '/',
   authenticate,
-  authorizeRoles('Admin'),
-  async (req, res) => {
-
-    const announcement =
-      await Announcement.create({
+  authorizeRoles('Admin', 'Faculty'), // Added 'Faculty' here
+  async (req, res, next) => {
+    try {
+      const announcement = await Announcement.create({
         title: req.body.title,
         content: req.body.content,
         postedBy: req.user._id,
       });
 
-    res.status(201).json({
-      data: announcement,
-    });
+      res.status(201).json({
+        data: announcement,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 

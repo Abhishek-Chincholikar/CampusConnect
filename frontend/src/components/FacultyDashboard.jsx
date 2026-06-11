@@ -22,7 +22,7 @@ function FacultyDashboard({ session, onLogout }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              {user?.full_name} (Faculty Coordinator)
+              {user?.full_name || 'Faculty Member'} (Faculty Coordinator)
             </h1>
             <p className="text-xs text-emerald-600 font-semibold tracking-wide uppercase mt-0.5">
               SIESCOMS Academic & Governance Panel Active
@@ -59,7 +59,6 @@ function FacultyDashboard({ session, onLogout }) {
           </div>
         </Link>
 
-        {/* Note: This points to your existing application logic if needed, or you can route to user management */}
         <Link 
           to="/admin/users" 
           className="flex items-center gap-4 bg-white border border-slate-200 p-5 rounded-xl hover:border-emerald-500 hover:shadow-lift transition duration-200 group"
@@ -99,7 +98,7 @@ function FacultyDashboard({ session, onLogout }) {
           className="flex items-center gap-4 bg-white border border-slate-200 p-5 rounded-xl hover:border-emerald-500 hover:shadow-lift transition duration-200 group"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition group-hover:bg-emerald-600 group-hover:text-white">
-            <FileText size={22} />
+            <FileSpreadsheet size={22} />
           </span>
           <div>
             <h3 className="font-bold text-lg text-slate-900 group-hover:text-emerald-700 transition">

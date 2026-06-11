@@ -3,782 +3,798 @@ import {
 } from 'react-icons/fa';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowUpRight,
-  BadgeCheck,
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  Clock3,
-  GraduationCap,
-  Loader2,
-  LogOut,
-  ShieldCheck,
-  UsersRound,
-  XCircle,
+ ArrowUpRight,
+ BadgeCheck,
+ Building2,
+ CheckCircle2,
+ ClipboardList,
+ Clock3,
+ GraduationCap,
+ Loader2,
+ LogOut,
+ ShieldCheck,
+ UsersRound,
+ XCircle,
 } from 'lucide-react';
 import { API_BASE_URL } from '../config.js';
 
 const statusStyles = {
-  Pending: {
-    label: 'Pending',
-    icon: Clock3,
-    className: 'bg-amber-50 text-amber-800 ring-amber-200',
-  },
-  Tech_Round: {
-    label: 'Tech Round',
-    icon: ShieldCheck,
-    className: 'bg-sky-50 text-sky-800 ring-sky-200',
-  },
-  Interview: {
-    label: 'Interview',
-    icon: UsersRound,
-    className: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
-  },
-  Voting: {
-    label: 'Voting',
-    icon: BadgeCheck,
-    className: 'bg-violet-50 text-violet-800 ring-violet-200',
-  },
-  Approved: {
-    label: 'Approved',
-    icon: CheckCircle2,
-    className: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  },
-  Rejected: {
-    label: 'Rejected',
-    icon: XCircle,
-    className: 'bg-rose-50 text-rose-800 ring-rose-200',
-  },
+ Pending: {
+   label: 'Pending',
+   icon: Clock3,
+   className: 'bg-amber-50 text-amber-800 ring-amber-200',
+ },
+ Tech_Round: {
+   label: 'Tech Round',
+   icon: ShieldCheck,
+   className: 'bg-sky-50 text-sky-800 ring-sky-200',
+ },
+ Interview: {
+   label: 'Interview',
+   icon: UsersRound,
+   className: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+ },
+ Voting: {
+   label: 'Voting',
+   icon: BadgeCheck,
+   className: 'bg-violet-50 text-violet-800 ring-violet-200',
+ },
+ Approved: {
+   label: 'Approved',
+   icon: CheckCircle2,
+   className: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+ },
+ Rejected: {
+   label: 'Rejected',
+   icon: XCircle,
+   className: 'bg-rose-50 text-rose-800 ring-rose-200',
+ },
 };
 
 const formatNumber = new Intl.NumberFormat('en-IN');
 
 const normalizeOrganization = (organization) => ({
-  id: organization._id || organization.id,
-  name: organization.name,
-  type: organization.type,
-  maxCapacity: Number(organization.max_capacity || organization.maxCapacity || 0),
-  acceptedMembers: Number(organization.accepted_members || organization.acceptedMembers || 0),
-  facultyCoordinator: organization.faculty_coordinator || organization.facultyCoordinator || '',
-  studentHead: organization.student_head || organization.studentHead || null,
+ id: organization._id || organization.id,
+ name: organization.name,
+ type: organization.type,
+ maxCapacity: Number(organization.max_capacity || organization.maxCapacity || 0),
+ acceptedMembers: Number(organization.accepted_members || organization.acceptedMembers || 0),
+ facultyCoordinator: organization.faculty_coordinator || organization.facultyCoordinator || '',
+ studentHead: organization.student_head || organization.studentHead || null,
 });
 
+// --- 🛠️ FIXED: Made normalization backup targets comprehensive to read all backend formatting properties ---
 const normalizeApplication = (application) => ({
-  id: application._id || application.id,
-  organizationId:
-    application.organization?._id || application.organization?.id || application.organization,
-  organizationName: application.organization?.name || 'Organization',
-  applicantName: application.user?.full_name || '',
-  applicantRollNumber: application.user?.Roll_Number || '',
-  applicantRole: application.user?.role || '',
-  status: application.status,
-  remarks: application.remarks || '',
-  updatedAt: application.updatedAt,
+ id: application._id || application.id,
+ organizationId:
+   application.organization?._id || application.organization?.id || application.organization,
+ organizationName: application.organization?.name || application.organization_name || 'Organization',
+ applicantName: application.student?.full_name || application.user?.full_name || application.full_name || 'Student Applicant',
+ applicantRollNumber: application.student?.Roll_Number || application.user?.Roll_Number || application.Roll_Number || 'N/A',
+ applicantRole: application.student?.role || application.user?.role || application.role || 'Student',
+ status: application.status || 'Pending',
+ remarks: application.remarks || '',
+ updatedAt: application.updatedAt,
 });
 
 function StatCard({ icon: Icon, label, value, detail }) {
-  return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-normal text-institute-ink">
-            {value}
-          </p>
-        </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-institute-navy text-white">
-          <Icon aria-hidden="true" size={20} />
-        </span>
-      </div>
-      <p className="mt-4 text-sm leading-6 text-slate-500">{detail}</p>
-    </article>
-  );
+ return (
+   <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+     <div className="flex items-start justify-between gap-4">
+       <div>
+         <p className="text-sm font-medium text-slate-500">{label}</p>
+         <p className="mt-3 text-3xl font-semibold tracking-normal text-institute-ink">
+           {value}
+         </p>
+       </div>
+       <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-institute-navy text-white">
+         <Icon aria-hidden="true" size={20} />
+       </span>
+     </div>
+     <p className="mt-4 text-sm leading-6 text-slate-500">{detail}</p>
+   </article>
+ );
 }
 
 function StatusPill({ status, count }) {
-  const config = statusStyles[status] || statusStyles.Pending;
-  const Icon = config.icon;
+ const config = statusStyles[status] || statusStyles.Pending;
+ const Icon = config.icon;
 
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ring-1 ${config.className}`}
-    >
-      <Icon aria-hidden="true" size={16} />
-      <span>{config.label}</span>
-      <span>{formatNumber.format(count)}</span>
-    </div>
-  );
+ return (
+   <div
+     className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ring-1 ${config.className}`}
+   >
+     <Icon aria-hidden="true" size={16} />
+     <span>{config.label}</span>
+     <span>{formatNumber.format(count)}</span>
+   </div>
+ );
 }
 
 function OrganizationCard({ organization, application, onApply, isApplying, canApply }) {
-  const filledPercentage =
-    organization.maxCapacity > 0
-      ? Math.min(100, Math.round((organization.acceptedMembers / organization.maxCapacity) * 100))
-      : 0;
-  const isFull =
-    organization.maxCapacity > 0 && organization.acceptedMembers >= organization.maxCapacity;
-  const statusConfig = application ? statusStyles[application.status] : null;
-  const StatusIcon = statusConfig?.icon;
-  const headName =
-    typeof organization.studentHead === 'object' && organization.studentHead
-      ? organization.studentHead.full_name
-      : 'Student council review';
+ const filledPercentage =
+   organization.maxCapacity > 0
+     ? Math.min(100, Math.round((organization.acceptedMembers / organization.maxCapacity) * 100))
+     : 0;
+ const isFull =
+   organization.maxCapacity > 0 && organization.acceptedMembers >= organization.maxCapacity;
+ const statusConfig = application ? statusStyles[application.status] : null;
+ const StatusIcon = statusConfig?.icon;
+ const headName =
+   typeof organization.studentHead === 'object' && organization.studentHead
+     ? organization.studentHead.full_name
+     : 'Student council review';
 
-  return (
-    <article className="flex min-h-[292px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lift">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <span
-            className={`inline-flex rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-normal ${
-              organization.type === 'Committee'
-                ? 'bg-cardinal-50 text-cardinal-700'
-                : 'bg-blue-50 text-institute-blue'
-            }`}
-          >
-            {organization.type}
-          </span>
-          <h3 className="mt-4 text-xl font-semibold leading-7 tracking-normal text-institute-ink">
-            {organization.name}
-          </h3>
-        </div>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-institute-blue">
-          {organization.type === 'Committee' ? (
-            <ShieldCheck aria-hidden="true" size={20} />
-          ) : (
-            <GraduationCap aria-hidden="true" size={20} />
-          )}
-        </span>
-      </div>
+ return (
+   <article className="flex min-h-[292px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lift">
+     <div className="flex items-start justify-between gap-4">
+       <div>
+         <span
+           className={`inline-flex rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-normal ${
+             organization.type === 'Committee'
+               ? 'bg-cardinal-50 text-cardinal-700'
+               : 'bg-blue-50 text-institute-blue'
+           }`}
+         >
+           {organization.type}
+         </span>
+         <h3 className="mt-4 text-xl font-semibold leading-7 tracking-normal text-institute-ink">
+           {organization.name}
+         </h3>
+       </div>
+       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-institute-blue">
+         {organization.type === 'Committee' ? (
+           <ShieldCheck aria-hidden="true" size={20} />
+         ) : (
+           <GraduationCap aria-hidden="true" size={20} />
+         )}
+       </span>
+     </div>
 
-      <dl className="mt-5 space-y-3 text-sm">
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500">Faculty Coordinator</dt>
-          <dd className="text-right font-medium text-slate-700">
-            {organization.facultyCoordinator}
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500">Student Head</dt>
-          <dd className="text-right font-medium text-slate-700">{headName}</dd>
-        </div>
-      </dl>
+     <dl className="mt-5 space-y-3 text-sm">
+       <div className="flex items-center justify-between gap-4">
+         <dt className="text-slate-500">Faculty Coordinator</dt>
+         <dd className="text-right font-medium text-slate-700">
+           {organization.facultyCoordinator}
+         </dd>
+       </div>
+       <div className="flex items-center justify-between gap-4">
+         <dt className="text-slate-500">Student Head</dt>
+         <dd className="text-right font-medium text-slate-700">{headName}</dd>
+       </div>
+     </dl>
 
-      <div className="mt-6">
-        <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-          <span className="font-medium text-slate-600">Seat Capacity</span>
-          <span className="font-semibold text-institute-ink">
-            {formatNumber.format(organization.acceptedMembers)}/
-            {formatNumber.format(organization.maxCapacity)} Seats Filled
-          </span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full ${
-              isFull ? 'bg-cardinal-600' : 'bg-institute-blue'
-            }`}
-            style={{ width: `${filledPercentage}%` }}
-          />
-        </div>
-      </div>
+     <div className="mt-6">
+       <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+         <span className="font-medium text-slate-600">Seat Capacity</span>
+         <span className="font-semibold text-institute-ink">
+           {formatNumber.format(organization.acceptedMembers)}/
+           {formatNumber.format(organization.maxCapacity)} Seats Filled
+         </span>
+       </div>
+       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+         <div
+           className={`h-full rounded-full ${
+             isFull ? 'bg-cardinal-600' : 'bg-institute-blue'
+           }`}
+           style={{ width: `${filledPercentage}%` }}
+         />
+       </div>
+     </div>
 
-      <div className="mt-auto pt-6">
-        {application && statusConfig ? (
-          <div
-            className={`mb-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ring-1 ${statusConfig.className}`}
-          >
-            <StatusIcon aria-hidden="true" size={16} />
-            {statusConfig.label}
-          </div>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onApply(organization.id)}
-          disabled={!canApply || Boolean(application) || isFull || isApplying}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-institute-navy px-4 text-sm font-semibold text-white transition hover:bg-institute-blue focus:outline-none focus:ring-2 focus:ring-institute-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
-          aria-label={`Apply for ${organization.name}`}
-        >
-          {isApplying ? <Loader2 aria-hidden="true" className="animate-spin" size={18} /> : null}
-          <span>
-            {!canApply
-              ? 'Review Access Only'
-              : isApplying
-                ? 'Submitting Application'
-                : 'Apply for Selection Process'}
-          </span>
-          {!isApplying ? <ArrowUpRight aria-hidden="true" size={17} /> : null}
-        </button>
-      </div>
-    </article>
-  );
+     <div className="mt-auto pt-6">
+       {application && statusConfig ? (
+         <div
+           className={`mb-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ring-1 ${statusConfig.className}`}
+         >
+           <StatusIcon aria-hidden="true" size={16} />
+           {statusConfig.label}
+         </div>
+       ) : null}
+       <button
+         type="button"
+         onClick={() => onApply(organization.id)}
+         disabled={!canApply || Boolean(application) || isFull || isApplying}
+         className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-institute-navy px-4 text-sm font-semibold text-white transition hover:bg-institute-blue focus:outline-none focus:ring-2 focus:ring-institute-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+         aria-label={`Apply for ${organization.name}`}
+       >
+         {isApplying ? <Loader2 aria-hidden="true" className="animate-spin" size={18} /> : null}
+         <span>
+           {!canApply
+             ? 'Review Access Only'
+             : isApplying
+               ? 'Submitting Application'
+               : 'Apply for Selection Process'}
+         </span>
+         {!isApplying ? <ArrowUpRight aria-hidden="true" size={17} /> : null}
+       </button>
+     </div>
+   </article>
+ );
 }
 
 function ReviewPanel({ applications, onStatusChange, loadingActionId }) {
-  const actions = ['Tech_Round', 'Interview', 'Voting', 'Approved', 'Rejected'];
+ const actions = ['Tech_Round', 'Interview', 'Voting', 'Approved', 'Rejected'];
 
-  return (
-    <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-normal text-institute-ink">
-            Applicant Review
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Head and faculty workflow for selection rounds.
-          </p>
-        </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-institute-blue">
-          <ClipboardList aria-hidden="true" size={20} />
-        </span>
-      </div>
+ return (
+   <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+     <div className="mb-5 flex items-center justify-between gap-4">
+       <div>
+         <h2 className="text-lg font-semibold tracking-normal text-institute-ink">
+           Applicant Review
+         </h2>
+         <p className="mt-1 text-sm leading-6 text-slate-500">
+           Head and faculty workflow for selection rounds.
+         </p>
+       </div>
+       <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-institute-blue">
+         <ClipboardList aria-hidden="true" size={20} />
+       </span>
+     </div>
 
-      {applications.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-            <thead>
-              <tr className="text-slate-500">
-                <th className="whitespace-nowrap px-3 py-3 font-semibold">Applicant</th>
-                <th className="whitespace-nowrap px-3 py-3 font-semibold">Organization</th>
-                <th className="whitespace-nowrap px-3 py-3 font-semibold">Status</th>
-                <th className="whitespace-nowrap px-3 py-3 font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {applications.map((application) => {
-                const config = statusStyles[application.status] || statusStyles.Pending;
-                const StatusIcon = config.icon;
+     {applications.length > 0 ? (
+       <div className="overflow-x-auto">
+         <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+           <thead>
+             <tr className="text-slate-500">
+               <th className="whitespace-nowrap px-3 py-3 font-semibold">Applicant</th>
+               <th className="whitespace-nowrap px-3 py-3 font-semibold">Organization</th>
+               <th className="whitespace-nowrap px-3 py-3 font-semibold">Status</th>
+               <th className="whitespace-nowrap px-3 py-3 font-semibold">Action</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-slate-100">
+             {applications.map((application) => {
+               const config = statusStyles[application.status] || statusStyles.Pending;
+               const StatusIcon = config.icon;
 
-                return (
-                  <tr key={application.id} className="align-top">
-                    <td className="px-3 py-4">
-                      <p className="font-semibold text-institute-ink">
-                        {application.applicantName}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        {application.applicantRollNumber}
-                      </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <p className="font-semibold text-slate-700">
-                        {application.organizationName}
-                      </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ring-1 ${config.className}`}
-                      >
-                        <StatusIcon aria-hidden="true" size={14} />
-                        {config.label}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        {actions.map((action) => (
-                          <button
-                            key={action}
-                            type="button"
-                            disabled={
-                              loadingActionId === application.id ||
-                              application.status === 'Approved' ||
-                              application.status === action
-                            }
-                            onClick={() => onStatusChange(application.id, action)}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-institute-blue hover:text-institute-blue disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                          >
-                            {statusStyles[action]?.label || action}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-slate-300 px-5 py-8 text-center">
-          <p className="font-semibold text-institute-ink">No applications submitted</p>
-          <p className="mt-2 text-sm text-slate-500">Applicant records will appear here.</p>
-        </div>
-      )}
-    </section>
-  );
+               return (
+                 <tr key={application.id} className="align-top">
+                   <td className="px-3 py-4">
+                     <p className="font-semibold text-institute-ink">
+                       {application.applicantName}
+                     </p>
+                     <p className="mt-1 text-xs font-medium text-slate-500">
+                       {application.applicantRollNumber}
+                     </p>
+                   </td>
+                   <td className="px-3 py-4">
+                     <p className="font-semibold text-slate-700">
+                       {application.organizationName}
+                     </p>
+                   </td>
+                   <td className="px-3 py-4">
+                     <span
+                       className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ring-1 ${config.className}`}
+                     >
+                       <StatusIcon aria-hidden="true" size={14} />
+                       {config.label}
+                     </span>
+                   </td>
+                   <td className="px-3 py-4">
+                     <div className="flex flex-wrap gap-2">
+                       {actions.map((action) => (
+                         <button
+                           key={action}
+                           type="button"
+                           disabled={
+                             loadingActionId === application.id ||
+                             application.status === 'Approved' ||
+                             application.status === action
+                           }
+                           onClick={() => onStatusChange(application.id, action)}
+                           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-institute-blue hover:text-institute-blue disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                         >
+                           {statusStyles[action]?.label || action}
+                         </button>
+                       ))}
+                     </div>
+                   </td>
+                 </tr>
+               );
+             })}
+           </tbody>
+         </table>
+       </div>
+     ) : (
+       <div className="rounded-lg border border-dashed border-slate-300 px-5 py-8 text-center">
+         <p className="font-semibold text-institute-ink">No applications submitted</p>
+         <p className="mt-2 text-sm text-slate-500">Applicant records will appear here.</p>
+       </div>
+     )}
+   </section>
+ );
 }
 
 function Dashboard({ session, onLogout }) {
-  const [organizations, setOrganizations] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [reviewApplications, setReviewApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [applyingOrganizationId, setApplyingOrganizationId] = useState(null);
-  const [reviewActionId, setReviewActionId] = useState(null);
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const [showProfile, setShowProfile] = useState(false);
-  const [announcements, setAnnouncements] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [showNotifications,setShowNotifications] = useState(false);
+ const [organizations, setOrganizations] = useState([]);
+ const [applications, setApplications] = useState([]);
+ const [reviewApplications, setReviewApplications] = useState([]);
+ const [loading, setLoading] = useState(true);
+ const [applyingOrganizationId, setApplyingOrganizationId] = useState(null);
+ const [reviewActionId, setReviewActionId] = useState(null);
+ const [notice, setNotice] = useState('');
+ const [error, setError] = useState('');
+ const [showProfile, setShowProfile] = useState(false);
+ const [announcements, setAnnouncements] = useState([]);
+ const [reports, setReports] = useState([]);
+ const [showNotifications, setShowNotifications] = useState(false);
+ 
+ const [readNoticeIds, setReadNoticeIds] = useState([]);
 
-  const token = session?.token;
-  const user = session?.user;
-  const canReview = ['Head', 'Faculty'].includes(user?.role);
-  const canApply = ['Student', 'Head'].includes(user?.role);
+ const token = session?.token;
+ const user = session?.user;
+ const canReview = ['Head', 'Faculty'].includes(user?.role);
+ const canApply = ['Student', 'Head'].includes(user?.role);
 
-  const request = useCallback(
-    async (path, options = {}) => {
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      };
+ const unreadCount = useMemo(() => {
+   return announcements.filter(item => !readNoticeIds.includes(item._id)).length;
+ }, [announcements, readNoticeIds]);
 
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
+ // --- 🛠️ FIXED: Global click-outside dismissal hook listener array setup ---
+ useEffect(() => {
+   if (!showProfile && !showNotifications) return;
+   
+   const handleGlobalClickDismissal = (e) => {
+     // Close menu anchors safely if click targets fall outside parent menu dropdown triggers
+     if (!e.target.closest('.profile-menu-container') && !e.target.closest('.notif-menu-container')) {
+       setShowProfile(false);
+       setShowNotifications(false);
+     }
+   };
 
-      const response = await fetch(`${API_BASE_URL}${path}`, {
-        ...options,
-        headers,
-      });
+   document.addEventListener('mousedown', handleGlobalClickDismissal);
+   return () => document.removeEventListener('mousedown', handleGlobalClickDismissal);
+ }, [showProfile, showNotifications]);
 
-      const payload = await response.json().catch(() => ({}));
+ const request = useCallback(
+   async (path, options = {}) => {
+     const headers = {
+       'Content-Type': 'application/json',
+       ...(options.headers || {}),
+     };
 
-      if (!response.ok) {
-        throw new Error(payload.message || 'Request failed');
-      }
+     if (token) {
+       headers.Authorization = `Bearer ${token}`;
+     }
 
-      return payload;
-    },
-    [token]
-  );
+     const response = await fetch(`${API_BASE_URL}${path}`, {
+       ...options,
+       headers,
+     });
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setError('');
+     const payload = await response.json().catch(() => ({}));
 
-    try {
-      const organizationsResponse = await request('/organizations');
-      setOrganizations((organizationsResponse.data || []).map(normalizeOrganization));
-      const announcementsResponse = await request('/announcements');
-      setAnnouncements(announcementsResponse.data || []);
-      const reportsResponse = await request('/reports');
-      setReports(reportsResponse.data || []);
-      if (token) {
-        const applicationsResponse = await request('/applications/me');
-        setApplications((applicationsResponse.data || []).map(normalizeApplication));
+     if (!response.ok) {
+       throw new Error(payload.message || 'Request failed');
+     }
 
-        if (canReview) {
-          const reviewApplicationsResponse = await request('/applications');
-          setReviewApplications(
-            (reviewApplicationsResponse.data || []).map(normalizeApplication)
-          );
-        } else {
-          setReviewApplications([]);
-        }
-      } else {
-        setApplications([]);
-        setReviewApplications([]);
-      }
-    } catch (loadError) {
-      setError(loadError.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [canReview, request, token]);
+     return payload;
+   },
+   [token]
+ );
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+ const loadDashboard = useCallback(async () => {
+   setLoading(true);
+   setError('');
 
-  const applicationByOrganization = useMemo(() => {
-    return applications.reduce((map, application) => {
-      map.set(String(application.organizationId), application);
-      return map;
-    }, new Map());
-  }, [applications]);
+   try {
+     const organizationsResponse = await request('/organizations');
+     setOrganizations((organizationsResponse.data || []).map(normalizeOrganization));
+     const announcementsResponse = await request('/announcements');
+     setAnnouncements(announcementsResponse.data || []);
+     const reportsResponse = await request('/reports');
+     setReports(reportsResponse.data || []);
+     
+     if (token) {
+       const applicationsResponse = await request('/applications/me');
+       setApplications((applicationsResponse.data || []).map(normalizeApplication));
 
-  const statusCounts = useMemo(() => {
-    return applications.reduce((counts, application) => {
-      counts[application.status] = (counts[application.status] || 0) + 1;
-      return counts;
-    }, {});
-  }, [applications]);
+       if (canReview) {
+         const reviewApplicationsResponse = await request('/applications');
+         const parsedApps = (reviewApplicationsResponse.data || []).map(normalizeApplication);
+         const currentUserEmail = String(user?.email || '').toLowerCase().trim();
 
-  const stats = useMemo(() => {
-    const committees = organizations.filter((organization) => organization.type === 'Committee');
-    const clubs = organizations.filter((organization) => organization.type === 'Club');
-    const filledSeats = organizations.reduce(
-      (total, organization) => total + organization.acceptedMembers,
-      0
-    );
-    const totalSeats = organizations.reduce(
-      (total, organization) => total + organization.maxCapacity,
-      0
-    );
+         if (user?.role === 'Faculty' && currentUserEmail === 'nehac@sies.edu.in') {
+           const isolatedScope = parsedApps.filter(app => 
+             String(app.organizationName || '').toUpperCase().includes('POSH')
+           );
+           setReviewApplications(isolatedScope);
+         } else {
+           setReviewApplications(parsedApps);
+         }
+       } else {
+         setReviewApplications([]);
+       }
+     } else {
+       setApplications([]);
+       setReviewApplications([]);
+     }
+   } catch (loadError) {
+     setError(loadError.message);
+   } finally {
+     setLoading(false);
+   }
+ }, [canReview, request, token, user?.email, user?.role]);
 
-    return {
-      totalOrganizations: organizations.length,
-      clubs: clubs.length,
-      committees: committees.length,
-      filledSeats,
-      totalSeats,
-      activeApplications: applications.filter((application) =>
-        ['Pending', 'Tech_Round', 'Interview', 'Voting'].includes(application.status)
-      ).length,
-    };
-  }, [applications, organizations]);
+ useEffect(() => {
+   loadDashboard();
+ }, [loadDashboard]);
 
-  const handleApply = async (organizationId) => {
-    setNotice('');
-    setError('');
+ const applicationByOrganization = useMemo(() => {
+   return applications.reduce((map, application) => {
+     map.set(String(application.organizationId), application);
+     return map;
+   }, new Map());
+ }, [applications]);
 
-    if (!token) {
-      setError('Sign in with a student account before applying for a selection process.');
-      return;
-    }
+ const statusCounts = useMemo(() => {
+   return applications.reduce((counts, application) => {
+     counts[application.status] = (counts[application.status] || 0) + 1;
+     return counts;
+   }, {});
+ }, [applications]);
 
-    if (!canApply) {
-      setError('Faculty accounts review applications and cannot submit student applications.');
-      return;
-    }
+ const stats = useMemo(() => {
+   const committees = organizations.filter((organization) => organization.type === 'Committee');
+   const clubs = organizations.filter((organization) => organization.type === 'Club');
+   const filledSeats = organizations.reduce(
+     (total, organization) => total + organization.acceptedMembers,
+     0
+   );
+   const totalSeats = organizations.reduce(
+     (total, organization) => total + organization.maxCapacity,
+     0
+   );
 
-    setApplyingOrganizationId(organizationId);
+   return {
+     totalOrganizations: organizations.length,
+     clubs: clubs.length,
+     committees: committees.length,
+     filledSeats,
+     totalSeats,
+     activeApplications: applications.filter((application) =>
+       ['Pending', 'Tech_Round', 'Interview', 'Voting'].includes(application.status)
+     ).length,
+   };
+ }, [applications, organizations]);
 
-    try {
-      const response = await request('/applications', {
-        method: 'POST',
-        body: JSON.stringify({ organizationId }),
-      });
+ const handleApply = async (organizationId) => {
+   setNotice('');
+   setError('');
 
-      setApplications((current) => [normalizeApplication(response.data), ...current]);
-      setNotice(response.message || 'Application submitted for the selection process.');
-    } catch (applyError) {
-      setError(applyError.message);
-    } finally {
-      setApplyingOrganizationId(null);
-    }
-  };
+   if (!token) {
+     setError('Sign in with a student account before applying for a selection process.');
+     return;
+   }
 
-  const handleReviewStatus = async (applicationId, status) => {
-    setNotice('');
-    setError('');
-    setReviewActionId(applicationId);
+   if (!canApply) {
+     setError('Faculty accounts review applications and cannot submit student applications.');
+     return;
+   }
 
-    try {
-      const path =
-        status === 'Approved'
-          ? `/applications/${applicationId}/approve`
-          : `/applications/${applicationId}/status`;
-      const response = await request(path, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      });
-      const updatedApplication = normalizeApplication(response.data);
+   setApplyingOrganizationId(organizationId);
 
-      setReviewApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId ? updatedApplication : application
-        )
-      );
-      setNotice(response.message || 'Application updated.');
-      await loadDashboard();
-    } catch (reviewError) {
-      setError(reviewError.message);
-    } finally {
-      setReviewActionId(null);
-    }
-  };
+   try {
+     const response = await request('/applications', {
+       method: 'POST',
+       body: JSON.stringify({ organizationId }),
+     });
 
-  return (
-    <main className="min-h-screen bg-institute-mist">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-7 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-cardinal-700">
-              SIESCOMS Committees & Clubs
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-institute-ink sm:text-4xl">
-              CampusConnect
-            </h1>
-            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 max-w-md shadow-sm">
-              <p className="text-sm font-semibold text-slate-800">
-                {user?.role === 'Admin' && `System Administrator: ${user.full_name}`}
-                {user?.role === 'Faculty' && `${user.full_name} (Faculty Coordinator)`}
-                {user?.role === 'Head' && `${user.full_name} (Committee Head)`}
-                {user?.role === 'Student' && `Welcome, ${user.full_name}`}
-              </p>
-              <p className="text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 uppercase">
-                Secure Session ID: {user?.role === 'Admin' || user?.role === 'Faculty' ? 'ADMIN_CORE_ACCESS' : user?.Roll_Number}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative">
-              <button
-                onClick={() =>
-                  setShowProfile(!showProfile)}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-institute-navy text-white font-semibold">
-                  {user?.full_name?.charAt(0)}
-                </div>
-                <span className="font-medium">
-                  {user?.full_name}
-                </span>
-                <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-institute-blue">
-                  {user?.role}
-                </span>
-              </button>
-              {showProfile && (
-                <div className="absolute right-0 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg z-50">
+     setApplications((current) => [normalizeApplication(response.data), ...current]);
+     setNotice(response.message || 'Application submitted for the selection process.');
+   } catch (applyError) {
+     setError(applyError.message);
+   } finally {
+     setApplyingOrganizationId(null);
+   }
+ };
 
-                  <h3 className="font-semibold mb-3">
-                    My Profile
-                  </h3>
+ const handleReviewStatus = async (applicationId, status) => {
+   setNotice('');
+   setError('');
+   setReviewActionId(applicationId);
 
-                  <p>
-                    <strong>Name:</strong>
-                    {' '}
-                    {user?.full_name}
-                  </p>
+   try {
+     const path =
+       status === 'Approved'
+         ? `/applications/${applicationId}/approve`
+         : `/applications/${applicationId}/status`;
+     const response = await request(path, {
+       method: 'PUT',
+       body: JSON.stringify({ status }),
+     });
+     const updatedApplication = normalizeApplication(response.data);
 
-                  <p>
-                    <strong>Roll No:</strong>
-                    {' '}
-                    {user?.Roll_Number}
-                  </p>
+     setReviewApplications((current) =>
+       current.map((application) =>
+         application.id === applicationId ? updatedApplication : application
+       )
+     );
+     setNotice(response.message || 'Application updated.');
+     await loadDashboard();
+   } catch (reviewError) {
+     setError(reviewError.message);
+   } finally {
+     setReviewActionId(null);
+   }
+ };
 
-                  <p>
-                    <strong>Email:</strong>
-                    {' '}
-                    {user?.email}
-                  </p>
+ const handleToggleNotifications = () => {
+   if (!showNotifications) {
+     const allIds = announcements.map(item => item._id);
+     setReadNoticeIds(allIds);
+   }
+   setShowNotifications(!showNotifications);
+ };
 
-                  <p>
-                    <strong>Role:</strong>
-                    {' '}
-                    {user?.role}
-                  </p>
+ return (
+   <main className="min-h-screen bg-institute-mist">
+     <header className="border-b border-slate-200 bg-white relative z-50">
+       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-7 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+         <div>
+           <p className="text-sm font-bold uppercase tracking-normal text-cardinal-700">
+             SIESCOMS Committees & Clubs
+           </p>
+           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-institute-ink sm:text-4xl">
+             CampusConnect
+           </h1>
+           <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 max-w-md shadow-sm">
+             <p className="text-sm font-semibold text-slate-800">
+               {user?.role === 'Admin' && `System Administrator: ${user.full_name}`}
+               {user?.role === 'Faculty' && `${user.full_name} (Faculty Coordinator)`}
+               {user?.role === 'Head' && `${user.full_name} (Committee Head)`}
+               {user?.role === 'Student' && `Welcome, ${user.full_name}`}
+             </p>
+             <p className="text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 uppercase">
+               Secure Session ID: {user?.role === 'Admin' || user?.role === 'Faculty' ? 'ADMIN_CORE_ACCESS' : user?.Roll_Number}
+             </p>
+           </div>
+         </div>
+         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+           
+           {/* --- 🛠️ FIXED: Container context bounded with tracking tags class handles --- */}
+           <div className="relative profile-menu-container">
+             <button
+               onClick={() => setShowProfile(!showProfile)}
+               className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+             >
+               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-institute-navy text-white font-semibold">
+                 {user?.full_name?.charAt(0)}
+               </div>
+               <span className="font-medium">
+                 {user?.full_name}
+               </span>
+               <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-institute-blue">
+                 {user?.role}
+               </span>
+             </button>
+             {showProfile && (
+               <div className="absolute right-0 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg z-50">
+                 <h3 className="font-semibold mb-3">
+                   My Profile
+                 </h3>
+                 <p><strong>Name:</strong> {user?.full_name}</p>
+                 <p><strong>Roll No:</strong> {user?.Roll_Number || 'N/A'}</p>
+                 <p><strong>Email:</strong> {user?.email}</p>
+                 <p><strong>Role:</strong> {user?.role}</p>
+               </div>
+             )}
+           </div>
+           
+           {/* --- 🛠️ FIXED: Container context bounded with tracking tags class handles --- */}
+           <div className="relative notif-menu-container">
+             <button 
+               onClick={handleToggleNotifications}
+               className="relative p-3 border rounded-lg bg-white"
+             >
+               <FaBell size={18} />
+               {unreadCount > 0 && (
+                 <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1 animate-pulse">
+                   {unreadCount}
+                 </span>
+               )}
+             </button>
+             {showNotifications && (
+               <div className="absolute right-0 mt-2 w-96 bg-white border rounded-lg shadow-lg p-4 z-50 max-h-96 overflow-y-auto">
+                 <h3 className="font-bold mb-3 border-b border-slate-100 pb-2">
+                   Announcements
+                 </h3>
+                 {announcements.length === 0 ? (
+                   <p className="text-sm text-slate-400 py-2 text-center">No announcements published</p>
+                 ) : (
+                   announcements.map((item) => (
+                     <div key={item._id} className="border-b last:border-b-0 py-3">
+                       <h4 className="font-semibold text-slate-900">{item.title}</h4>
+                       <p className="text-sm text-slate-600 mt-1">{item.content}</p>
+                     </div>
+                   ))
+                 )}
+               </div>
+             )}
+           </div>
 
-                </div>
-              )}
-            </div>
-            <div className="relative">
-              <button onClick={() => setShowNotifications( !showNotifications)}
-                className="relative p-3 border rounded-lg bg-white">
-                <FaBell size={18} />
-                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-2">
-                  {announcements.length}
-                </span>
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-96 bg-white border rounded-lg shadow-lg p-4 z-50">
-                  <h3 className="font-bold mb-3">
-                    Announcements
-                  </h3>
-                  { announcements.length === 0 ? (
-                        <p>
-                          No announcements
-                        </p>
-                      ) : (announcements.map(
-                          (item) => (
-                            <div key={item._id} className="border-b py-3">
-                              <h4 className="font-semibold">
-                                {item.title}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {item.content}
-                              </p>
-                            </div>
-                          )
-                        )
-                      )
-                  }
-                </div>
-              )
-            }
-            </div>
+           <button
+             type="button"
+             onClick={onLogout}
+             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-cardinal-600 hover:text-cardinal-700 focus:outline-none focus:ring-2 focus:ring-cardinal-600/30"
+           >
+             <LogOut aria-hidden="true" size={17} />
+             Sign Out
+           </button>
+         </div>
+       </div>
+     </header>
 
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-cardinal-600 hover:text-cardinal-700 focus:outline-none focus:ring-2 focus:ring-cardinal-600/30"
-            >
-              <LogOut aria-hidden="true" size={17} />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+     <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
+       {notice ? (
+         <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+           {notice}
+         </div>
+       ) : null}
+       {error ? (
+         <div className="mb-6 rounded-lg border border-cardinal-600/20 bg-cardinal-50 px-4 py-3 text-sm font-medium text-cardinal-700">
+           {error}
+         </div>
+       ) : null}
 
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
-        {notice ? (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            {notice}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mb-6 rounded-lg border border-cardinal-600/20 bg-cardinal-50 px-4 py-3 text-sm font-medium text-cardinal-700">
-            {error}
-          </div>
-        ) : null}
+       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+         <StatCard
+           icon={Building2}
+           label="Total Active Organizations"
+           value={formatNumber.format(stats.totalOrganizations)}
+           detail={`${formatNumber.format(stats.clubs)} clubs and ${formatNumber.format(
+             stats.committees
+           )} committees available.`}
+         />
+         <StatCard
+           icon={UsersRound}
+           label="Seat Allocation"
+           value={`${formatNumber.format(stats.filledSeats)}/${formatNumber.format(
+             stats.totalSeats
+           )}`}
+           detail="Approved memberships recorded across active organizations."
+         />
+         <StatCard
+           icon={Clock3}
+           label="Active Applications"
+           value={formatNumber.format(stats.activeApplications)}
+           detail="Applications currently moving through selection rounds."
+         />
+         <StatCard
+           icon={CheckCircle2}
+           label="Approved Applications"
+           value={formatNumber.format(statusCounts.Approved || 0)}
+           detail="Final approvals reflected in student profiles."
+         />
+       </div>
+     
+       <div className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+           <div>
+             <h2 className="text-lg font-semibold tracking-normal text-institute-ink">
+               Application Status Tracker
+             </h2>
+             <p className="mt-1 text-sm leading-6 text-slate-500">
+               Selection progress across pending, review, and final decision stages.
+             </p>
+           </div>
+           <div className="flex flex-wrap gap-2">
+             {Object.keys(statusStyles).map((status) => (
+               <StatusPill key={status} status={status} count={statusCounts[status] || 0} />
+             ))}
+           </div>
+         </div>
+       </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={Building2}
-            label="Total Active Organizations"
-            value={formatNumber.format(stats.totalOrganizations)}
-            detail={`${formatNumber.format(stats.clubs)} clubs and ${formatNumber.format(
-              stats.committees
-            )} committees available.`}
-          />
-          <StatCard
-            icon={UsersRound}
-            label="Seat Allocation"
-            value={`${formatNumber.format(stats.filledSeats)}/${formatNumber.format(
-              stats.totalSeats
-            )}`}
-            detail="Approved memberships recorded across active organizations."
-          />
-          <StatCard
-            icon={Clock3}
-            label="Active Applications"
-            value={formatNumber.format(stats.activeApplications)}
-            detail="Applications currently moving through selection rounds."
-          />
-          <StatCard
-            icon={CheckCircle2}
-            label="Approved Applications"
-            value={formatNumber.format(statusCounts.Approved || 0)}
-            detail="Final approvals reflected in student profiles."
-          />
-        </div>
-      
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold tracking-normal text-institute-ink">
-                Application Status Tracker
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Selection progress across pending, review, and final decision stages.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {Object.keys(statusStyles).map((status) => (
-                <StatusPill key={status} status={status} count={statusCounts[status] || 0} />
-              ))}
-            </div>
-          </div>
-        </section>
+       {canReview ? (
+         <ReviewPanel
+           applications={reviewApplications}
+           onStatusChange={handleReviewStatus}
+           loadingActionId={reviewActionId}
+         />
+       ) : null}
+       
+       <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+         <h2 className="text-xl font-bold mb-4">
+           Reports & Documents
+         </h2>
+         {reports.length === 0 ? (
+           <p className="text-sm text-slate-400">No reports uploaded.</p>
+         ) : (
+           reports.map((report) => (
+             <div
+               key={report._id}
+               className="border rounded p-4 mb-3 flex justify-between items-center"
+             >
+               <div>
+                 <h3 className="font-semibold">
+                   {report.title}
+                 </h3>
+                 <p className="text-sm text-blue-600">
+                   {report.organization?.name}
+                 </p>
+                 <p className="text-sm text-gray-500">
+                   Uploaded by: {report.uploadedBy?.full_name}
+                 </p>
+               </div>
+               <a
+                 href={report.fileUrl}
+                 target="_blank"
+                 rel="noreferrer"
+                 className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-blue-700 transition"
+               >
+                 Download
+               </a>
+             </div>
+           ))
+         )}
+       </section>
 
-        {canReview ? (
-          <ReviewPanel
-            applications={reviewApplications}
-            onStatusChange={handleReviewStatus}
-            loadingActionId={reviewActionId}
-          />
-        ) : null}
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-bold mb-4">
-            Reports & Documents
-          </h2>
-          {reports.length === 0 ? (
-            <p>No reports uploaded.</p>
-          ) : (
-            reports.map((report) => (
-              <div
-                key={report._id}
-                className="border rounded p-4 mb-3 flex justify-between items-center"
-              >
-                <div>
-                  <h3 className="font-semibold">
-                    {report.title}
-                  </h3>
-                  <p className="text-sm text-blue-600">
-                    {report.organization?.name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Uploaded by:
-                    {' '}
-                    {report.uploadedBy?.full_name}
-                  </p>
-                </div>
-                <a
-                  href={report.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                  Download
-                </a>
-              </div>
-            ))
-          )}
-        </section>
+       <section className="mt-10">
+         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+           <div>
+             <h2 className="text-2xl font-semibold tracking-normal text-institute-ink">
+               Available Clubs & Committees
+             </h2>
+             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+               Apply into the formal selection workflow and track each round from one portal.
+             </p>
+           </div>
+           <button
+             type="button"
+             onClick={loadDashboard}
+             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-institute-blue hover:text-institute-blue"
+           >
+             Refresh
+           </button>
+         </div>
 
-        <section className="mt-10">
-          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-normal text-institute-ink">
-                Available Clubs & Committees
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Apply into the formal selection workflow and track each round from one portal.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={loadDashboard}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-institute-blue hover:text-institute-blue focus:outline-none focus:ring-2 focus:ring-institute-blue focus:ring-offset-2"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-[292px] animate-pulse rounded-lg border border-slate-200 bg-white p-5"
-                >
-                  <div className="h-5 w-24 rounded bg-slate-100" />
-                  <div className="mt-5 h-7 w-3/4 rounded bg-slate-100" />
-                  <div className="mt-8 space-y-3">
-                    <div className="h-4 rounded bg-slate-100" />
-                    <div className="h-4 rounded bg-slate-100" />
-                    <div className="h-2 rounded-full bg-slate-100" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : organizations.length > 0 ? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {organizations.map((organization) => (
-                <OrganizationCard
-                  key={organization.id}
-                  organization={organization}
-                  application={applicationByOrganization.get(String(organization.id))}
-                  onApply={handleApply}
-                  isApplying={applyingOrganizationId === organization.id}
-                  canApply={canApply}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-              <Building2 aria-hidden="true" className="mx-auto text-slate-400" size={34} />
-              <h3 className="mt-4 text-lg font-semibold text-institute-ink">
-                No active organizations found
-              </h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Add clubs and committees in MongoDB to open the selection workflow.
-              </p>
-            </div>
-          )}
-        </section>
-      </section>
-    </main>
-  );
+         {loading ? (
+           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+             {Array.from({ length: 6 }).map((_, index) => (
+               <div
+                 key={index}
+                 className="h-[292px] animate-pulse rounded-lg border border-slate-200 bg-white p-5"
+               >
+                 <div className="h-5 w-24 rounded bg-slate-100" />
+                 <div className="mt-5 h-7 w-3/4 rounded bg-slate-100" />
+                 <div className="mt-8 space-y-3">
+                   <div className="h-4 rounded bg-slate-100" />
+                   <div className="h-4 rounded bg-slate-100" />
+                   <div className="h-2 rounded-full bg-slate-100" />
+                 </div>
+               </div>
+             ))}
+           </div>
+         ) : organizations.length > 0 ? (
+           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+             {organizations.map((organization) => (
+               <OrganizationCard
+                 key={organization.id}
+                 organization={organization}
+                 application={applicationByOrganization.get(String(organization.id))}
+                 onApply={handleApply}
+                 isApplying={applyingOrganizationId === organization.id}
+                 canApply={canApply}
+               />
+             ))}
+           </div>
+         ) : (
+           <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+             <Building2 aria-hidden="true" className="mx-auto text-slate-400" size={34} />
+             <h3 className="mt-4 text-lg font-semibold text-institute-ink">
+               No active organizations found
+             </h3>
+             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+               Add clubs and committees in MongoDB to open the selection workflow.
+             </p>
+           </div>
+         )}
+       </section>
+     </section>
+   </main>
+ );
 }
 
 export default Dashboard;

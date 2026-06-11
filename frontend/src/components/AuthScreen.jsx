@@ -15,7 +15,7 @@ function AuthScreen({ onAuthenticated }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Recovery states
+  // Account Recovery States
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryToken, setRecoveryToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -25,7 +25,8 @@ function AuthScreen({ onAuthenticated }) {
     const { name, value } = event.target;
     setForm((current) => ({
       ...current,
-      [name]: name === 'Roll_Number' ? value.toUpperCase() : value,
+      // We process inputs cleanly without hardcoding global uppercase locks on text fields
+      [name]: name === 'Roll_Number' ? value.trim() : value,
     }));
   };
 
@@ -34,9 +35,19 @@ function AuthScreen({ onAuthenticated }) {
     setLoading(true);
     setError('');
 
+    // Reconcile user role implicitly via identifier input field domains
+    const checkCredential = String(form.Roll_Number || '').toLowerCase().trim();
+    const cleanEmail = String(form.email || '').toLowerCase().trim();
+    
+    const isFacultyDomain = checkCredential.endsWith('@sies.edu.in') || cleanEmail.endsWith('@sies.edu.in');
+    const resolvedRole = isFacultyDomain ? 'Faculty' : 'Student';
+
     const payload = mode === 'login' 
       ? { Roll_Number: form.Roll_Number, password: form.password } 
-      : form;
+      : { 
+          ...form, 
+          role: resolvedRole 
+        };
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/${mode}`, {
@@ -71,10 +82,10 @@ function AuthScreen({ onAuthenticated }) {
         body: JSON.stringify({ email: recoveryEmail }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Recovery failed');
+      if (!res.ok) throw new Error(data.message || 'Recovery initiation failed');
       
       setSuccessMessage('Demo Mode: Token generated successfully!');
-      setRecoveryToken(data.token); // Secure token delivery from backend
+      setRecoveryToken(data.token); // Synchronized token stream directly from database
       setRecoveryStep(2);
     } catch (err) {
       setError(err.message);
@@ -96,9 +107,9 @@ function AuthScreen({ onAuthenticated }) {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || 'Reset failed');
+        throw new Error(data.message || 'Reset execution failed');
       }
-      alert('Password updated successfully! Redirecting to Sign In...');
+      alert('Password updated successfully! Redirecting to clean Sign-In gate...');
       setMode('login');
       setRecoveryStep(1);
       setRecoveryEmail('');
@@ -164,6 +175,7 @@ function AuthScreen({ onAuthenticated }) {
             </div>
           ) : null}
 
+          {/* LAYER SWITCH 1: ACCOUNT RECOVERY FORM INTERFACES */}
           {isForgot ? (
             recoveryStep === 1 ? (
               <form className="space-y-4" onSubmit={handleForgotPasswordSubmit}>
@@ -173,7 +185,7 @@ function AuthScreen({ onAuthenticated }) {
                     type="email"
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
-                    placeholder="abc.mca25@siescoms.sies.edu.in"
+                    placeholder="professor@sies.edu.in or student@siescoms.sies.edu.in"
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-3 text-institute-ink outline-none transition focus:border-institute-blue focus:ring-2 focus:ring-institute-blue/20"
                     required
                   />
@@ -222,15 +234,16 @@ function AuthScreen({ onAuthenticated }) {
               </form>
             )
           ) : (
+            /* LAYER SWITCH 2: AUTHENTICATION LOGIN AND REGISTRATION SIGNUP FORMS */
             <form className="space-y-4" onSubmit={submit}>
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Institutional ID / Roll Number</span>
+                {/* UNIFIED DESIGNATION LABELS REMOVING TARGET SIZE EXPLICIT LOCKS */}
+                <span className="text-sm font-semibold text-slate-700">Institutional ID / Email Address</span>
                 <input
                   name="Roll_Number"
                   value={form.Roll_Number}
                   onChange={updateField}
-                  style={{ textTransform: 'uppercase' }}
-                  placeholder="e.g., MCA25015 or ADMIN01"
+                  placeholder="e.g., MCA25015, SIESF101, or name@sies.edu.in"
                   className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-3 text-institute-ink outline-none transition focus:border-institute-blue focus:ring-2 focus:ring-institute-blue/20"
                   autoComplete="username"
                   required
@@ -254,7 +267,7 @@ function AuthScreen({ onAuthenticated }) {
                     <span className="text-sm font-semibold text-slate-700">Email</span>
                     <input
                       name="email"
-                      placeholder="abc.mca25@siescoms.sies.edu.in"
+                      placeholder="student@siescoms.sies.edu.in or faculty@sies.edu.in"
                       type="email"
                       value={form.email}
                       onChange={updateField}
@@ -263,6 +276,25 @@ function AuthScreen({ onAuthenticated }) {
                       autoComplete="email"
                     />
                   </label>
+                    <div className="block">
+                      <span className="text-sm font-semibold text-slate-700 block mb-2">
+                        Institutional Designation Scope
+                      </span>
+                      
+                      {/* Professional dynamic fallback card box */}
+                      <div className="flex h-11 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-500 shadow-inner select-none">
+                        {form.Roll_Number.toLowerCase().endsWith('@sies.edu.in') 
+                          ? 'Faculty Coordinator (Academic Governance Panel Mode Active)' 
+                          : 'Student (General Access Tiers)'}
+                      </div>
+
+                      {/* DYNAMIC FORM INJECTION PARAMETER CONTROL */}
+                      <input 
+                        type="hidden" 
+                        name="role" 
+                        value={form.Roll_Number.toLowerCase().endsWith('@sies.edu.in') ? 'Faculty' : 'Student'} 
+                      />
+                    </div>
                 </>
               ) : null}
 
