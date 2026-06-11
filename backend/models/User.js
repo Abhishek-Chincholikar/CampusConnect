@@ -1,4 +1,9 @@
+// 1. Put this import at the very top of your file
 const crypto = require('crypto');
+
+// 2. This is the exact syntax to generate a random 20-byte token string
+const token = crypto.randomBytes(20).toString('hex');
+
 const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
@@ -40,6 +45,14 @@ const userSchema = new Schema(
     password_salt: {
       type: String,
       select: false,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null
     },
     joined_clubs: [
       {

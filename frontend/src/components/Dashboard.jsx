@@ -499,6 +499,17 @@ function Dashboard({ session, onLogout }) {
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-institute-ink sm:text-4xl">
               CampusConnect
             </h1>
+            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 max-w-md shadow-sm">
+              <p className="text-sm font-semibold text-slate-800">
+                {user?.role === 'Admin' && `System Administrator: ${user.full_name}`}
+                {user?.role === 'Faculty' && `${user.full_name} (Faculty Coordinator)`}
+                {user?.role === 'Head' && `${user.full_name} (Committee Head)`}
+                {user?.role === 'Student' && `Welcome, ${user.full_name}`}
+              </p>
+              <p className="text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 uppercase">
+                Secure Session ID: {user?.role === 'Admin' || user?.role === 'Faculty' ? 'ADMIN_CORE_ACCESS' : user?.Roll_Number}
+              </p>
+            </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative">

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
@@ -158,6 +159,84 @@ router.get('/me', authenticate, async (req, res) => {
       user: sanitizeProfile(req.user),
     },
   });
+});
+// ==========================================
+// EMERGENCY PATCH: LIVE DEMO ACC_RECOVERY ENDPOINTS
+// ==========================================
+
+// 1. Initiate Recovery (Generates clean Token back to client layout)
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Institutional email is required' });
+    }
+
+    // CRITICAL VALIDATION FIX: Explicitly include all required model properties in the memory select scope
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select(
+      'Roll_Number full_name email role +password_hash +password_salt'
+    );
+    
+    if (!user) {
+      return res.status(404).json({ message: 'No account registered with this email address' });
+    }
+
+    // Generate random safe demo token hex
+    const token = crypto.randomBytes(20).toString('hex');
+    
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // Explicit 1 Hour Window
+    
+    // Disables external paths validation strictly for the token generation save step
+    await user.save({ validateBeforeSave: false });
+
+    // DEMO INLINE OPTIMIZATION: Returns token directly so you can display/copy it in front of the coordinator!
+    return res.json({
+      message: 'Demo Recovery Engine: Token generated successfully',
+      token: token
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// 2. Commit Target Recovery Password Modification
+router.post('/reset-password/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    }
+
+    // CRITICAL VALIDATION FIX: Explicitly include all required model properties here as well
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    }).select('Roll_Number full_name email role +password_hash +password_salt');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Recovery token is invalid or has expired' });
+    }
+
+    // Replicating model encryption to preserve password verification checks
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+
+    user.password_salt = salt;
+    user.password_hash = hash;
+    
+    // Clear token context from record
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    
+    await user.save({ validateBeforeSave: false });
+
+    return res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 module.exports = router;
