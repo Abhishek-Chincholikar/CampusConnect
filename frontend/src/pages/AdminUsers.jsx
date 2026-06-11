@@ -62,7 +62,6 @@ function AdminUsers({ session }) {
 
   // --- 🛠️ FIXED: Switched to PUT methodology to match your working backend specs ---
   const handleUpdateStatus = async (appId, newStatus) => {
-    // --- 🛠️ FIXED: Accurate multi-state mapping criteria to handle 'Pending' correctly ---
     let statusText = 'Rejected';
     if (newStatus === 'Accepted') {
       statusText = 'Approved';
@@ -74,9 +73,24 @@ function AdminUsers({ session }) {
     
     setActionLoading(true);
     try {
-      const token = window.localStorage.getItem('campusconnect_token');
+      // --- 🛠️ SAFE PRODUCTION TOKEN CHECKER LAYER ---
+      let token = window.localStorage.getItem('campusconnect_token');
       
-      // Match the exact route branching path based on translated statusText strings
+      // Fallback: Check if your main app layout stores it under a different common key name online
+      if (!token) {
+        token = window.localStorage.getItem('token') || window.localStorage.getItem('campusconnect_session');
+      }
+
+      if (!token) {
+        throw new Error("Your authentication session has timed out. Please logout and log back in to refresh your administrative clearance security tokens!");
+      }
+
+      // Automatically strip quotes if the token was saved as a stringified object string
+      if (token.startsWith('"') && token.endsWith('"')) {
+        token = token.slice(1, -1);
+      }
+
+      // Construct your target route branching path dynamically
       const finalUrlPath = statusText === 'Approved'
         ? `http://localhost:5000/api/applications/${appId}/approve`
         : `http://localhost:5000/api/applications/${appId}/status`;
@@ -93,6 +107,7 @@ function AdminUsers({ session }) {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Failed to modify application state');
       
+      alert(body.message || 'Application processed successfully!');
       setSelectedApp(null); 
       fetchUsers(); // Instantly reload table dataset metrics
     } catch (err) {
