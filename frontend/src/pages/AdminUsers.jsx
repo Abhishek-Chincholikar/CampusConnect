@@ -1,30 +1,24 @@
-import { API_BASE_URL } from '../config.js';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, RotateCcw } from 'lucide-react';
+
+// --- ✅ FIXED: Imports your central environment endpoint variable configuration ---
+import { API_BASE_URL } from '../config.js';
 
 function AdminUsers({ session }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Drawer Modals state managers
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // --- 🛠️ DYNAMIC BASE URL PARSER FOR ONLINE VERSIONS ---
-  const getBackendUrl = () => {
-    // If running online, it extracts the target base API from current window window parameters 
-    // or falls back directly to your standard development channel ports
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5000/api'
-      : `${window.location.origin.replace('5173', '5000')}/api`; 
-      // Replace this string with your explicit Render/Vercel backend domain if you have it!
-  };
-
+  // --- ✅ FIXED: Fetches cleanly using your central production API url string ---
   const fetchUsers = async () => {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`${getBackendUrl()}/applications`, {
+      const response = await fetch(`${API_BASE_URL}/applications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -55,6 +49,7 @@ function AdminUsers({ session }) {
     fetchUsers();
   }, [session]);
 
+  // --- CLOSED CLICK CAPTURE LISTENER ---
   useEffect(() => {
     if (!selectedApp) return;
 
@@ -68,6 +63,7 @@ function AdminUsers({ session }) {
     return () => document.removeEventListener('mousedown', handleOutsideClickClose);
   }, [selectedApp]);
 
+  // --- 🛠️ FIXED: Fully decoupled status text checks to parse 'Pending' correctly ---
   const handleUpdateStatus = async (appId, newStatus) => {
     let statusText = 'Rejected';
     if (newStatus === 'Accepted') {
@@ -82,15 +78,18 @@ function AdminUsers({ session }) {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
       
+      // Match the exact route branching path based on translated statusText strings
       const finalUrlPath = statusText === 'Approved'
         ? `${API_BASE_URL}/applications/${appId}/approve`
         : `${API_BASE_URL}/applications/${appId}/status`;
 
-      const response = await fetch(`${API_BASE_URL}/applications`, {
+      const response = await fetch(finalUrlPath, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ status: statusText }) 
       });
       
       const body = await response.json();
@@ -173,7 +172,7 @@ function AdminUsers({ session }) {
         )}
       </div>
 
-      {/* REFINED SIDEBAR DRAWER */}
+      {/* --- SIDEBAR DRAWER OVERLAY --- */}
       {selectedApp && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex justify-end drawer-panel-overlay">
           <div className="w-full max-w-md bg-white h-screen shadow-2xl p-6 flex flex-col justify-between border-l border-slate-200 drawer-content-card animate-slideLeft">
@@ -236,8 +235,9 @@ function AdminUsers({ session }) {
               <button
                 disabled={actionLoading}
                 onClick={() => handleUpdateStatus(selectedApp._id, 'Pending')}
-                className="w-full inline-flex items-center justify-center bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold py-3 px-4 rounded-xl transition text-sm border border-sky-200"
+                className="w-full inline-flex items-center justify-center gap-2 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold py-3 px-4 rounded-xl transition text-sm border border-sky-200"
               >
+                <RotateCcw size={16} />
                 Reset to Pending
               </button>
             </div>
