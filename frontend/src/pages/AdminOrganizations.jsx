@@ -61,6 +61,8 @@ function AdminOrganizations({ session }) {
     if (!window.confirm('Are you absolutely sure you want to disband this student organization body?')) return;
     try {
       const token = window.localStorage.getItem('campusconnect_token');
+      
+      // ✅ DOUBLE-CHECK THE PLURALIZATION OF 'organizations' MATCHES YOUR server.js DEFINITION
       const response = await fetch(`${API_BASE_URL}/organizations/${orgId}`, {
         method: 'DELETE',
         headers: { 
@@ -68,6 +70,7 @@ function AdminOrganizations({ session }) {
           'Content-Type': 'application/json'
         }
       });
+      
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Deletion task failed');
       

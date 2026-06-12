@@ -119,13 +119,13 @@ router.delete('/:id', authenticate, authorizeRoles('Admin'), async (req, res, ne
       return res.status(400).json({ message: 'Invalid target organization tracking key' });
     }
 
-    // --- REVERTED BACK TO PERMANENT HARD DELETION IN MONGODB ---
+    // Direct hard deletion query
     const organization = await Organization.findByIdAndDelete(id);
     if (!organization) {
-      return res.status(404).json({ message: 'Target organization not found in system registers' });
+      return res.status(404).json({ message: 'Target organization not found in database records' });
     }
 
-    // Unbind user roles across rosters immediately
+    // Cascade Cleanup Actions: Unbind references instantly inside standard user registers
     if (organization.type === 'Committee') {
       await User.updateMany({ joined_committee: id }, { $set: { joined_committee: null } });
     } else {
