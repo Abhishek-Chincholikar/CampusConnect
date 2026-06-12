@@ -11,7 +11,7 @@ function AdminOrganizations({ session }) {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // --- POPUP TIMEOUT MEMORY STATES MATRICES ---
+  // Pop-up banner memory states matrices
   const [lastDeletedOrg, setLastDeletedOrg] = useState(null);
   const [showUndoBanner, setShowUndoBanner] = useState(false);
 
@@ -56,6 +56,7 @@ function AdminOrganizations({ session }) {
     fetchOrgs();
   }, [session]);
 
+  // --- ✅ FIXED: Re-routed absolute target endpoint string using API_BASE_URL variable ---
   const handleDelete = async (orgId) => {
     if (!window.confirm('Are you absolutely sure you want to disband this student organization body?')) return;
     try {
@@ -91,19 +92,26 @@ function AdminOrganizations({ session }) {
     if (!lastDeletedOrg) return;
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`${API_BASE_URL}/organizations/${lastDeletedOrg._id}/restore`, {
+      const response = await fetch(`${API_BASE_URL}/organizations/create`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          name: lastDeletedOrg.name,
+          type: lastDeletedOrg.type,
+          description: lastDeletedOrg.description,
+          faculty_coordinator: lastDeletedOrg.faculty_coordinator,
+          max_capacity: lastDeletedOrg.max_capacity
+        })
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Failed to restore organization');
       
       setShowUndoBanner(false);
       setLastDeletedOrg(null);
-      fetchOrgs(); // Reload data array from backend cleanly
+      fetchOrgs(); // Reload data array cleanly
       alert('Organization restored successfully!');
     } catch (err) {
       alert(err.message);
@@ -146,7 +154,7 @@ function AdminOrganizations({ session }) {
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans relative">
       
-      {/* --- DYNAMIC SLIDEOUT UNDO REVERSE-DELETE TOAST BANNER --- */}
+      {/* --- DYNAMIC TOAST BANNER CONTAINER --- */}
       {showUndoBanner && lastDeletedOrg && (
         <div className="fixed top-6 right-6 bg-slate-900 text-white px-5 py-4 rounded-xl shadow-xl z-50 flex items-center gap-4 border border-slate-700 max-w-sm">
           <div>
