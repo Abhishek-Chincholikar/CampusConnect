@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config.js';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -82,16 +83,14 @@ function AdminUsers({ session }) {
       const token = window.localStorage.getItem('campusconnect_token');
       
       const finalUrlPath = statusText === 'Approved'
-        ? `${getBackendUrl()}/applications/${appId}/approve`
-        : `${getBackendUrl()}/applications/${appId}/status`;
+        ? `${API_BASE_URL}/applications/${appId}/approve`
+        : `${API_BASE_URL}/applications/${appId}/status`;
 
-      const response = await fetch(finalUrlPath, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE_URL}/applications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: statusText }) 
+        }
       });
       
       const body = await response.json();

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, Plus, X } from 'lucide-react';
 
+// --- ✅ FIXED: Imports your central environment endpoint variable configuration ---
+import { API_BASE_URL } from '../config.js';
+
 function AdminOrganizations({ session }) {
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,17 +20,11 @@ function AdminOrganizations({ session }) {
   });
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // --- 🛠️ DYNAMIC BASE URL PARSER FOR ONLINE VERSIONS ---
-  const getBackendUrl = () => {
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5000/api'
-      : `${window.location.origin.replace('5173', '5000')}/api`;
-  };
-
+  // --- ✅ FIXED: Fetches cleanly using your central production API url string ---
   const fetchOrgs = async () => {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`${getBackendUrl()}/organizations`, {
+      const response = await fetch(`${API_BASE_URL}/organizations`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -56,11 +53,12 @@ function AdminOrganizations({ session }) {
     fetchOrgs();
   }, [session]);
 
+  // --- ✅ FIXED: Deletion endpoint calls route using the central configuration template variable ---
   const handleDelete = async (orgId) => {
     if (!window.confirm('Are you absolutely sure you want to disband this student organization body?')) return;
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`${getBackendUrl()}/organizations/${orgId}`, {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -72,6 +70,7 @@ function AdminOrganizations({ session }) {
     }
   };
 
+  // --- ✅ FIXED: Creation endpoint calls route using the central configuration template variable ---
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setSubmitLoading(true);
@@ -84,7 +83,7 @@ function AdminOrganizations({ session }) {
 
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`${getBackendUrl()}/organizations/create`, {
+      const response = await fetch(`${API_BASE_URL}/organizations/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
