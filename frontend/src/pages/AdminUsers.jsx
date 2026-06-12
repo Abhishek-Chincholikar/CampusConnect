@@ -7,14 +7,23 @@ function AdminUsers({ session }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Drawer Modals state managers
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // --- 🛠️ DYNAMIC BASE URL PARSER FOR ONLINE VERSIONS ---
+  const getBackendUrl = () => {
+    // If running online, it extracts the target base API from current window window parameters 
+    // or falls back directly to your standard development channel ports
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000/api'
+      : `${window.location.origin.replace('5173', '5000')}/api`; 
+      // Replace this string with your explicit Render/Vercel backend domain if you have it!
+  };
 
   const fetchUsers = async () => {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch('http://localhost:5000/api/applications', {
+      const response = await fetch(`${getBackendUrl()}/applications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -26,7 +35,6 @@ function AdminUsers({ session }) {
       const rawApplications = body.data || [];
       const currentUserEmail = String(session?.user?.email || '').toLowerCase().trim();
 
-      // Enforce specific email string target filter validation bounds cleanly
       if (session?.user?.role === 'Faculty' && currentUserEmail === 'nehac@sies.edu.in') {
         const facultyScopeFiltered = rawApplications.filter(app => 
           String(app.organization?.name || app.organization_name || '').toUpperCase().includes('POSH')
@@ -46,7 +54,6 @@ function AdminUsers({ session }) {
     fetchUsers();
   }, [session]);
 
-  // --- CLOSED CLICK CAPTURE LISTENER ---
   useEffect(() => {
     if (!selectedApp) return;
 
@@ -60,7 +67,6 @@ function AdminUsers({ session }) {
     return () => document.removeEventListener('mousedown', handleOutsideClickClose);
   }, [selectedApp]);
 
-  // --- 🛠️ FIXED: Switched to PUT methodology to match your working backend specs ---
   const handleUpdateStatus = async (appId, newStatus) => {
     let statusText = 'Rejected';
     if (newStatus === 'Accepted') {
@@ -73,27 +79,11 @@ function AdminUsers({ session }) {
     
     setActionLoading(true);
     try {
-      // --- 🛠️ SAFE PRODUCTION TOKEN CHECKER LAYER ---
-      let token = window.localStorage.getItem('campusconnect_token');
+      const token = window.localStorage.getItem('campusconnect_token');
       
-      // Fallback: Check if your main app layout stores it under a different common key name online
-      if (!token) {
-        token = window.localStorage.getItem('token') || window.localStorage.getItem('campusconnect_session');
-      }
-
-      if (!token) {
-        throw new Error("Your authentication session has timed out. Please logout and log back in to refresh your administrative clearance security tokens!");
-      }
-
-      // Automatically strip quotes if the token was saved as a stringified object string
-      if (token.startsWith('"') && token.endsWith('"')) {
-        token = token.slice(1, -1);
-      }
-
-      // Construct your target route branching path dynamically
       const finalUrlPath = statusText === 'Approved'
-        ? `http://localhost:5000/api/applications/${appId}/approve`
-        : `http://localhost:5000/api/applications/${appId}/status`;
+        ? `${getBackendUrl()}/applications/${appId}/approve`
+        : `${getBackendUrl()}/applications/${appId}/status`;
 
       const response = await fetch(finalUrlPath, {
         method: 'PUT',
@@ -107,9 +97,8 @@ function AdminUsers({ session }) {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Failed to modify application state');
       
-      alert(body.message || 'Application processed successfully!');
       setSelectedApp(null); 
-      fetchUsers(); // Instantly reload table dataset metrics
+      fetchUsers(); 
     } catch (err) {
       alert(err.message);
     } finally {
@@ -163,6 +152,7 @@ function AdminUsers({ session }) {
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
                         item.status === 'Accepted' || item.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                         item.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                        item.status === 'Seat Filled' ? 'bg-slate-50 text-slate-500 border border-slate-200' :
                         'bg-amber-50 text-amber-700 border border-amber-100'
                       }`}>
                         {item.status || 'Pending'}
@@ -184,7 +174,7 @@ function AdminUsers({ session }) {
         )}
       </div>
 
-      {/* --- SIDEBAR PANEL OVERLAY --- */}
+      {/* REFINED SIDEBAR DRAWER */}
       {selectedApp && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex justify-end drawer-panel-overlay">
           <div className="w-full max-w-md bg-white h-screen shadow-2xl p-6 flex flex-col justify-between border-l border-slate-200 drawer-content-card animate-slideLeft">
@@ -206,21 +196,18 @@ function AdminUsers({ session }) {
                     {selectedApp.user?.full_name || selectedApp.student?.full_name || selectedApp.full_name || 'N/A'}
                   </span>
                 </div>
-
                 <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Institutional Roll Number ID</span>
                   <span className="text-sm font-mono font-bold text-slate-700 block mt-1 uppercase">
                     {selectedApp.user?.Roll_Number || selectedApp.student?.Roll_Number || selectedApp.Roll_Number || 'N/A'}
                   </span>
                 </div>
-
                 <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Target Institutional Branch Scope</span>
                   <span className="text-sm font-bold text-slate-800 block mt-1">
                     {selectedApp.organization?.name || selectedApp.organization_name || 'General Campus Scope'}
                   </span>
                 </div>
-
                 <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <span className="text-xs font-bold text-slate-400 tracking-wider block">Current Status</span>
                   <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded-full mt-2 bg-slate-200 text-slate-700">

@@ -8,20 +8,26 @@ function AdminOrganizations({ session }) {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // --- UPDATED: Form state contains schema validation properties ---
   const [form, setForm] = useState({ 
     name: '', 
     type: 'Committee', 
     description: '',
     faculty_coordinator: '',
-    max_capacity: '50' // Reasonable standard fallback default string value
+    max_capacity: '50' 
   });
   const [submitLoading, setSubmitLoading] = useState(false);
+
+  // --- 🛠️ DYNAMIC BASE URL PARSER FOR ONLINE VERSIONS ---
+  const getBackendUrl = () => {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000/api'
+      : `${window.location.origin.replace('5173', '5000')}/api`;
+  };
 
   const fetchOrgs = async () => {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch('http://localhost:5000/api/organizations', {
+      const response = await fetch(`${getBackendUrl()}/organizations`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -33,7 +39,6 @@ function AdminOrganizations({ session }) {
       const rawData = body.data || [];
       const currentUserEmail = String(session?.user?.email || '').toLowerCase().trim();
 
-      // --- 🔒 ENFORCE STRICT NEHA MA'AM VALIDATION FILTER LAYER ---
       if (session?.user?.role === 'Faculty' && currentUserEmail === 'nehac@sies.edu.in') {
         const filteredData = rawData.filter(org => String(org.name).toUpperCase().includes('POSH'));
         setOrganizations(filteredData);
@@ -55,7 +60,7 @@ function AdminOrganizations({ session }) {
     if (!window.confirm('Are you absolutely sure you want to disband this student organization body?')) return;
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch(`http://localhost:5000/api/organizations/${orgId}`, {
+      const response = await fetch(`${getBackendUrl()}/organizations/${orgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -72,7 +77,6 @@ function AdminOrganizations({ session }) {
     setSubmitLoading(true);
     setError('');
     
-    // Convert capacity string token cleanly to numerical fields for DB layout rules
     const fixedPayload = {
       ...form,
       max_capacity: Number(form.max_capacity)
@@ -80,7 +84,7 @@ function AdminOrganizations({ session }) {
 
     try {
       const token = window.localStorage.getItem('campusconnect_token');
-      const response = await fetch('http://localhost:5000/api/organizations/create', {
+      const response = await fetch(`${getBackendUrl()}/organizations/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -175,7 +179,7 @@ function AdminOrganizations({ session }) {
         )}
       </div>
 
-      {/* CREATION DIALOG MODAL WITH NEW VALIDATION INPUTS */}
+      {/* CREATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl border border-slate-200 w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -194,11 +198,9 @@ function AdminOrganizations({ session }) {
                   required
                   value={form.name}
                   onChange={(e) => setForm({...form, name: e.target.value})}
-                  placeholder="e.g., POSH Committee"
                   className="w-full h-11 border border-slate-300 rounded-lg px-3 text-sm outline-none focus:border-emerald-600"
                 />
               </div>
-              
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Classification Scope</label>
                 <select
@@ -210,34 +212,27 @@ function AdminOrganizations({ session }) {
                   <option value="Club">Club (General Activity Cluster)</option>
                 </select>
               </div>
-
-              {/* --- NEW FIELD: FACULTY COORDINATOR UNIQUE ATTRIBUTE --- */}
               <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Faculty Coordinator Reference Name/Email</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Faculty Coordinator Reference Email</label>
                 <input
                   type="text"
                   required
                   value={form.faculty_coordinator}
                   onChange={(e) => setForm({...form, faculty_coordinator: e.target.value})}
-                  placeholder="e.g., nehac@sies.edu.in"
                   className="w-full h-11 border border-slate-300 rounded-lg px-3 text-sm outline-none focus:border-emerald-600 font-mono text-xs"
                 />
               </div>
-
-              {/* --- NEW FIELD: MAX CAPACITY CONSTRAINTS VALUE --- */}
               <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Maximum Enrollment Capacity Limit</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Maximum Enrollment Capacity</label>
                 <input
                   type="number"
                   required
                   min="1"
                   value={form.max_capacity}
                   onChange={(e) => setForm({...form, max_capacity: e.target.value})}
-                  placeholder="e.g., 60"
                   className="w-full h-11 border border-slate-300 rounded-lg px-3 text-sm outline-none focus:border-emerald-600"
                 />
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">Description</label>
                 <textarea
@@ -245,11 +240,9 @@ function AdminOrganizations({ session }) {
                   rows={3}
                   value={form.description}
                   onChange={(e) => setForm({...form, description: e.target.value})}
-                  placeholder="Provide core description context..."
                   className="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none resize-none focus:border-emerald-600"
                 />
               </div>
-
               <div className="flex gap-3 justify-end pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm">Cancel</button>
                 <button type="submit" disabled={submitLoading} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm">{submitLoading ? 'Provisioning...' : 'Confirm Create'}</button>
