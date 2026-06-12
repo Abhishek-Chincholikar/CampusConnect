@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, X } from 'lucide-react';
+import { Trash2, Plus, X, RotateCcw } from 'lucide-react';
 
 // --- ✅ FIXED: Imports your central environment endpoint variable configuration ---
 import { API_BASE_URL } from '../config.js';
@@ -11,6 +11,10 @@ function AdminOrganizations({ session }) {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
+  // --- POPUP TIMEOUT MEMORY STATES MATRICES ---
+  const [lastDeletedOrg, setLastDeletedOrg] = useState(null);
+  const [showUndoBanner, setShowUndoBanner] = useState(false);
+
   const [form, setForm] = useState({ 
     name: '', 
     type: 'Committee', 
@@ -20,7 +24,6 @@ function AdminOrganizations({ session }) {
   });
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // --- ✅ FIXED: Fetches cleanly using your central production API url string ---
   const fetchOrgs = async () => {
     try {
       const token = window.localStorage.getItem('campusconnect_token');
@@ -53,24 +56,60 @@ function AdminOrganizations({ session }) {
     fetchOrgs();
   }, [session]);
 
-  // --- ✅ FIXED: Deletion endpoint calls route using the central configuration template variable ---
   const handleDelete = async (orgId) => {
     if (!window.confirm('Are you absolutely sure you want to disband this student organization body?')) return;
     try {
       const token = window.localStorage.getItem('campusconnect_token');
       const response = await fetch(`${API_BASE_URL}/organizations/${orgId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Deletion task failed');
+      
+      // Save item references to local state memory right before wiping table rows
+      const deletedItem = organizations.find(o => o._id === orgId);
+      setLastDeletedOrg(deletedItem);
+      setShowUndoBanner(true);
+      
       setOrganizations((prev) => prev.filter((o) => o._id !== orgId));
+      
+      // Auto-hide the undo popup after 10 seconds
+      setTimeout(() => {
+        setShowUndoBanner(false);
+      }, 10000);
+
     } catch (err) {
       alert(err.message);
     }
   };
 
-  // --- ✅ FIXED: Creation endpoint calls route using the central configuration template variable ---
+  const handleUndoDelete = async () => {
+    if (!lastDeletedOrg) return;
+    try {
+      const token = window.localStorage.getItem('campusconnect_token');
+      const response = await fetch(`${API_BASE_URL}/organizations/${lastDeletedOrg._id}/restore`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Failed to restore organization');
+      
+      setShowUndoBanner(false);
+      setLastDeletedOrg(null);
+      fetchOrgs(); // Reload data array from backend cleanly
+      alert('Organization restored successfully!');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setSubmitLoading(true);
@@ -105,7 +144,28 @@ function AdminOrganizations({ session }) {
   };
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen font-sans">
+    <div className="p-8 bg-slate-50 min-h-screen font-sans relative">
+      
+      {/* --- DYNAMIC SLIDEOUT UNDO REVERSE-DELETE TOAST BANNER --- */}
+      {showUndoBanner && lastDeletedOrg && (
+        <div className="fixed top-6 right-6 bg-slate-900 text-white px-5 py-4 rounded-xl shadow-xl z-50 flex items-center gap-4 border border-slate-700 max-w-sm">
+          <div>
+            <p className="text-sm font-semibold">Disbanded "{lastDeletedOrg.name}"</p>
+            <p className="text-xs text-slate-400 mt-0.5">You can revert this operational task right now.</p>
+          </div>
+          <button 
+            onClick={handleUndoDelete}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0"
+          >
+            <RotateCcw size={13} />
+            Undo Action
+          </button>
+          <button onClick={() => setShowUndoBanner(false)} className="text-slate-400 hover:text-white transition pl-1">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center max-w-6xl mx-auto">
         <Link to="/" className="text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition">
           ← Back to {session?.user?.role === 'Admin' ? 'Admin' : 'Faculty'} Dashboard
@@ -132,7 +192,7 @@ function AdminOrganizations({ session }) {
           <div className="mt-8 text-center text-slate-500 font-medium animate-pulse">Loading institutional records...</div>
         ) : organizations.length === 0 ? (
           <div className="mt-8 text-center p-8 bg-slate-50 border border-dashed rounded-xl text-slate-400 font-medium">
-            No dynamic organizations registered in database collections.
+            No active organizations registered in database collections.
           </div>
         ) : (
           <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">

@@ -10,6 +10,7 @@ const authorizeRoles = authMiddleware.authorizeRoles || authMiddleware.restrictT
 
 const router = express.Router();
 
+// 1. GET: Fetch all organizations normally
 router.get('/', async (req, res, next) => {
   try {
     const organizations = await Organization.find()
@@ -38,6 +39,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// 2. GET BY ID: Fetch an individual organization profile
 router.get('/:id', async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -73,10 +75,9 @@ router.get('/:id', async (req, res, next) => {
 // INSTITUTIONAL PROVISIONING ARCHITECTURE 
 // ==========================================
 
-// 1. Post Route: Fixed to read and pass Mongoose's required structural attributes
+// 3. POST: Provision organization with new validation parameters
 router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, next) => {
   try {
-    // --- FIXED: Destructure the required validation schema fields from the request body ---
     const { name, type, description, student_head, faculty_coordinator, max_capacity } = req.body;
 
     if (!name || !type || !description) {
@@ -90,16 +91,14 @@ router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, n
       return res.status(409).json({ message: 'An organization with this precise name already exists' });
     }
 
-    // --- FIXED: Map out the required validator fields into the creation object payload matrix ---
     const newOrgData = {
       name: normalizedName,
       type,
       description,
       faculty_coordinator: faculty_coordinator || 'Not Assigned',
-      max_capacity: max_capacity ? Number(max_capacity) : 50 // Safe numerical fallback parse
+      max_capacity: max_capacity ? Number(max_capacity) : 50
     };
 
-    // If an optional student head id is sent during creation, bind it if valid
     if (student_head && mongoose.Types.ObjectId.isValid(student_head)) {
       newOrgData.student_head = student_head;
     }
@@ -111,7 +110,7 @@ router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, n
   }
 });
 
-// 2. Delete Route: Handle complete cascading deletion parameters of selected organizations
+// 4. DELETE: Complete physical erasure with cascade cleanup behaviors
 router.delete('/:id', authenticate, authorizeRoles('Admin'), async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -120,12 +119,13 @@ router.delete('/:id', authenticate, authorizeRoles('Admin'), async (req, res, ne
       return res.status(400).json({ message: 'Invalid target organization tracking key' });
     }
 
+    // --- REVERTED BACK TO PERMANENT HARD DELETION IN MONGODB ---
     const organization = await Organization.findByIdAndDelete(id);
     if (!organization) {
       return res.status(404).json({ message: 'Target organization not found in system registers' });
     }
 
-    // Cascade Cleanup Actions: Unbind references instantly inside standard user registers
+    // Unbind user roles across rosters immediately
     if (organization.type === 'Committee') {
       await User.updateMany({ joined_committee: id }, { $set: { joined_committee: null } });
     } else {
