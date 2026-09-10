@@ -260,6 +260,38 @@ router.post('/resend-otp', async (req, res, next) => {
 });
 
 // ==========================================
+// EMERGENCY FACULTY SEEDER (PANKAJ SRIVASTAVA)
+// ==========================================
+router.get('/seed-pankaj', async (req, res, next) => {
+  try {
+    const cleanEmail = 'pankajs@sies.edu.in';
+    
+    // Wipe any broken or misconfigured instance
+    await User.deleteMany({ email: cleanEmail });
+
+    const faculty = new User({
+      Roll_Number: 'FAC_PANKAJ',
+      full_name: 'Pankaj Srivastava',
+      email: cleanEmail,
+      role: 'Faculty',
+      isVerified: true,
+      isFirstLogin: false
+    });
+
+    faculty.setPassword('12345678');
+    await faculty.save();
+
+    return res.status(200).json({ 
+      message: 'Professor Pankaj Srivastava account seeded successfully!',
+      email: cleanEmail,
+      password: '12345678'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ==========================================
 // 4. UNIFIED LOGIN (STUDENT & PRE-PROVISIONED FACULTY)
 // ==========================================
 router.post('/login', async (req, res, next) => {
@@ -367,6 +399,38 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     await user.save();
 
     return res.json({ message: 'Password updated successfully.' });
+  } catch (error) {
+    return next(error);
+  }
+});
+// ==========================================
+// EMERGENCY ADMIN SEEDER
+// ==========================================
+router.get('/seed-admin', async (req, res, next) => {
+  try {
+    // 1. Wipe the old outdated admin account
+    await User.deleteMany({ email: 'admin.mca25@siescoms.sies.edu.in' });
+
+    // 2. Create a pristine, verified Admin account with the modern schema
+    const admin = new User({
+      Roll_Number: 'ADMIN',
+      full_name: 'Admin',
+      email: 'admin.mca25@siescoms.sies.edu.in',
+      role: 'Admin',
+      isVerified: true,
+      isFirstLogin: false
+    });
+
+    // 3. Cryptographically hash the new easy-to-remember password
+    admin.setPassword('12345678');
+    await admin.save();
+
+    return res.status(200).json({ 
+      message: 'Admin account securely seeded.',
+      login_with_option_1: 'ADMIN',
+      login_with_option_2: 'admin.mca25@siescoms.sies.edu.in',
+      password: '12345678'
+    });
   } catch (error) {
     return next(error);
   }

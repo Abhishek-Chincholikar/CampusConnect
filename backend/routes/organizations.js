@@ -2,13 +2,41 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Organization = require('../models/Organization');
 const User = require('../models/User');
-// --- SAFE BACKEND MIDDLEWARE FALLBACK COMPATIBILITY LAYER ---
+
 const authMiddleware = require('../middleware/auth');
-// Automatically catches whether your file exports it as "authenticate" or "protect"
 const authenticate = authMiddleware.authenticate || authMiddleware.protect || ((req, res, next) => next());
 const authorizeRoles = authMiddleware.authorizeRoles || authMiddleware.restrictTo || (() => (req, res, next) => next());
 
 const router = express.Router();
+
+// Helper: Silently auto-provision a faculty user account so they can log in immediately with 12345678
+async function ensureFacultyAccountExists(email) {
+  if (!email || email === 'Not Assigned') return;
+  const cleanEmail = String(email).toLowerCase().trim();
+  
+  let facultyUser = await User.findOne({ email: cleanEmail });
+  if (!facultyUser) {
+    // Generate a clean display name from email prefix (e.g., pankajs -> Pankaj S.)
+    const namePrefix = cleanEmail.split('@')[0];
+    const formattedName = namePrefix
+      .split('.')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    facultyUser = new User({
+      Roll_Number: `FAC_${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      full_name: formattedName.length > 2 ? formattedName : 'Faculty Coordinator',
+      email: cleanEmail,
+      role: 'Faculty',
+      isVerified: true,
+      isFirstLogin: false
+    });
+    
+    // Set default password to 12345678 silently without sending any email
+    facultyUser.setPassword('12345678');
+    await facultyUser.save();
+  }
+}
 
 // 1. GET: Fetch all organizations normally
 router.get('/', async (req, res, next) => {
@@ -75,7 +103,7 @@ router.get('/:id', async (req, res, next) => {
 // INSTITUTIONAL PROVISIONING ARCHITECTURE 
 // ==========================================
 
-// 3. POST: Provision organization with new validation parameters
+// 3. POST: Provision organization and auto-create silent faculty login
 router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, next) => {
   try {
     const { name, type, description, student_head, faculty_coordinator, max_capacity } = req.body;
@@ -91,11 +119,13 @@ router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, n
       return res.status(409).json({ message: 'An organization with this precise name already exists' });
     }
 
+    const facultyEmail = faculty_coordinator ? String(faculty_coordinator).trim() : 'Not Assigned';
+
     const newOrgData = {
       name: normalizedName,
       type,
       description,
-      faculty_coordinator: faculty_coordinator || 'Not Assigned',
+      faculty_coordinator: facultyEmail,
       max_capacity: max_capacity ? Number(max_capacity) : 50
     };
 
@@ -104,7 +134,13 @@ router.post('/create', authenticate, authorizeRoles('Admin'), async (req, res, n
     }
 
     const organization = await Organization.create(newOrgData);
-    return res.status(201).json({ message: 'Organization provisioned successfully', data: organization });
+
+    // Silently provision faculty login credentials in background (ZERO emails sent)
+    if (facultyEmail !== 'Not Assigned') {
+      await ensureFacultyAccountExists(facultyEmail);
+    }
+
+    return res.status(201).json({ message: 'Organization provisioned and faculty access synchronized successfully', data: organization });
   } catch (error) {
     return next(error);
   }
@@ -119,13 +155,11 @@ router.delete('/:id', authenticate, authorizeRoles('Admin'), async (req, res, ne
       return res.status(400).json({ message: 'Invalid target organization tracking key' });
     }
 
-    // Direct hard deletion query
     const organization = await Organization.findByIdAndDelete(id);
     if (!organization) {
       return res.status(404).json({ message: 'Target organization not found in database records' });
     }
 
-    // Cascade Cleanup Actions: Unbind references instantly inside standard user registers
     if (organization.type === 'Committee') {
       await User.updateMany({ joined_committee: id }, { $set: { joined_committee: null } });
     } else {

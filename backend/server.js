@@ -12,6 +12,7 @@ const announcementRoutes = require('./routes/announcements');
 const reportRoutes = require('./routes/reports');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
+
 const app = express();
 
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
@@ -74,6 +75,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/admin', require('./routes/admin'));
 app.get('/api/test', (req, res) => {
   res.json({
     announcementsLoaded: !!announcementRoutes,

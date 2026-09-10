@@ -118,7 +118,7 @@ function App() {
         />
         <Route
           path="/admin/reports"
-          element={<AdminReports />}
+          element={<AdminReports session={session} />}
         />
         <Route
           path="/admin/organizations"
