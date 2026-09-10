@@ -1,11 +1,42 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
+// ==========================================
+// PRODUCTION BREVO SMTP TRANSPORTER (FREE TIER)
+// ==========================================
+console.log("SMTP Login ID:", process.env.BREVO_SMTP_LOGIN);
+console.log("SMTP Key exists?:", !!process.env.BREVO_SMTP_KEY);
+
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false, // TLS via STARTTLS
+  pool: true,
+  maxConnections: 3,
+  auth: {
+    user: process.env.BREVO_SMTP_LOGIN,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
+
+// Helper: Verify Brevo SMTP connection on startup
+transporter.verify((error) => {
+  if (error) {
+    console.warn('[Brevo SMTP] Warning: Connection could not be established immediately.', error.message);
+  } else {
+    console.log('[Brevo SMTP] Connection verified. Ready to dispatch transactional OTPs.');
+  }
+});
+
+// ==========================================
+// HELPERS & SANITIZATION
+// ==========================================
 const createToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is required for authentication');
@@ -15,6 +46,8 @@ const createToken = (user) => {
     {
       role: user.role,
       Roll_Number: user.Roll_Number,
+      organizationMemberships: user.organizationMemberships || [],
+      isFirstLogin: user.isFirstLogin ?? false,
     },
     process.env.JWT_SECRET,
     {
@@ -38,77 +71,182 @@ const sanitizeProfile = (user) => {
     full_name: user.full_name,
     email: user.email,
     role: user.role,
+    isFirstLogin: user.isFirstLogin ?? false,
+    organizationMemberships: user.organizationMemberships || [],
     joined_clubs: user.joined_clubs,
     joined_committee: user.joined_committee,
   };
 };
 
+// ==========================================
+// 1. STUDENT REGISTRATION (WITH NODEMAILER OTP)
+// ==========================================
 router.post('/register', async (req, res, next) => {
   try {
-    const { Roll_Number, full_name, email, password, role } = req.body;
+    const { Roll_Number, full_name, email, password } = req.body;
 
-    // --- REPLACE THE IDENTIFIER CHECK INSIDE ROUTER.POST('/register') WITH This ---
-    const normalizedRollNumber = normalizeRollNumber(Roll_Number); // This turns inputs into uppercase
+    const normalizedRollNumber = normalizeRollNumber(Roll_Number);
     const cleanEmail = String(email || '').toLowerCase().trim();
 
-// 1. DYNAMIC ENTRY VALIDATION: Allows Student Rolls, Alphanumeric Faculty codes, OR standard emails (containing @ and .)
-    const isStudentFormat = /^(MCA|MMS)\d{5}$/i.test(normalizedRollNumber);
-    const isAlphanumericFormat = /^[A-Z0-9_\-]+$/i.test(normalizedRollNumber);
-    const isEmailFormat = /\S+@\S+\.\S+/.test(Roll_Number); // Checks if the username input is a raw email string
-
-    if (!isStudentFormat && !isAlphanumericFormat && !isEmailFormat) {
+    // Student roll number pattern (MCA/MMS or alphanumeric)
+    const isStudentRoll = /^(MCA|MMS)\d{5}$/i.test(normalizedRollNumber) || /^[A-Z0-9_\-]+$/i.test(normalizedRollNumber);
+    if (!isStudentRoll) {
       return res.status(400).json({
-        message: 'Identifier must be a valid Roll Number, Faculty Code, or Institutional Email Handle'
+        message: 'Identifier must be a valid institutional roll number (e.g., MCA24001)',
       });
     }
 
-    // 2. DOMAIN MATCH MODIFICATION: Students use @siescoms.sies.edu.in, Faculty use @sies.edu.in
-    const isValidStudentEmail = cleanEmail.endsWith('@siescoms.sies.edu.in');
-    const isValidFacultyEmail = cleanEmail.endsWith('@sies.edu.in');
-
-    if (!cleanEmail || (!isValidStudentEmail && !isValidFacultyEmail)) {
+    // STRICT DOMAIN LOCK: Self-registration is strictly for students
+    if (!cleanEmail.endsWith('@siescoms.sies.edu.in')) {
       return res.status(400).json({
-        message: 'Registration requires a valid student email or a formal faculty email address (@sies.edu.in)',
+        message: 'Student registration requires an official institutional email (@siescoms.sies.edu.in). Faculty accounts are pre-provisioned by Administration.',
       });
     }
 
     if (!normalizedRollNumber || !full_name || !password) {
       return res.status(400).json({
-        message: 'Institutional identity tracking token, full name and password are required',
+        message: 'Roll number, full name, institutional email, and password are required',
       });
     }
 
     if (String(password).length < 8) {
       return res.status(400).json({
-        message: 'Password must be at least 8 characters',
+        message: 'Password must be at least 8 characters long',
       });
     }
 
-    const existingUser = await User.findOne({
-      Roll_Number: normalizedRollNumber,
-    }).lean();
-
-    if (existingUser) {
-      return res.status(409).json({
-        message: 'A user record with this unique identifier already exists',
-      });
-    }
-
-    // 3. DYNAMIC ROLE SYSTEM OVERRIDE: Assign incoming body role if explicit, default to Student
-    const user = new User({
-      Roll_Number: normalizedRollNumber,
-      full_name,
-      email: cleanEmail,
-      role: role || 'Student', 
+    // Check if user already exists
+    let existingUser = await User.findOne({
+      $or: [{ Roll_Number: normalizedRollNumber }, { email: cleanEmail }],
     });
 
-    user.setPassword(password);
+    if (existingUser && existingUser.isVerified) {
+      return res.status(409).json({
+        message: 'An active verified account with this Roll Number or Email already exists.',
+      });
+    }
+
+    // Cryptographically secure 6-digit OTP
+    const generatedOtp = crypto.randomInt(100000, 1000000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10-minute expiry
+
+    if (existingUser && !existingUser.isVerified) {
+      // User registered before but didn't verify: refresh credentials & OTP
+      existingUser.full_name = full_name;
+      existingUser.Roll_Number = normalizedRollNumber;
+      if (typeof existingUser.setPassword === 'function') {
+        existingUser.setPassword(password);
+      } else {
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+        existingUser.password_salt = salt;
+        existingUser.password_hash = hash;
+      }
+      existingUser.otp = generatedOtp;
+      existingUser.otpExpires = otpExpiry;
+      await existingUser.save();
+    } else {
+      // Create new unverified student record
+      const newUser = new User({
+        Roll_Number: normalizedRollNumber,
+        full_name,
+        email: cleanEmail,
+        role: 'Student',
+        isVerified: false,
+        otp: generatedOtp,
+        otpExpires: otpExpiry,
+      });
+
+      if (typeof newUser.setPassword === 'function') {
+        newUser.setPassword(password);
+      } else {
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+        newUser.password_salt = salt;
+        newUser.password_hash = hash;
+      }
+      await newUser.save();
+    }
+
+    // Dispatch branded transactional email via Brevo
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || `"CampusConnect SIESCOMS" <${process.env.BREVO_SMTP_LOGIN}>`,
+      to: cleanEmail,
+      subject: 'CampusConnect — Verify Your Institutional Account',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <h2 style="color: #0f172a; margin-bottom: 8px; font-size: 20px;">Welcome to CampusConnect</h2>
+          <p style="color: #475569; font-size: 14px; margin-bottom: 24px;">Hi ${full_name}, use the one-time verification code below to activate your student account.</p>
+          <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 24px;">
+            <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #047857;">${generatedOtp}</span>
+          </div>
+          <p style="color: #64748b; font-size: 12px; margin-bottom: 4px;">This code is valid for <strong>10 minutes</strong>. If you did not initiate this request, you can safely disregard this message.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          <p style="color: #94a3b8; font-size: 11px; text-align: center;">SIESCOMS Institutional Student Governance Platform</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({
+      message: 'Verification OTP sent to your institutional email. Please verify to continue.',
+      data: { email: cleanEmail },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ==========================================
+// 2. VERIFY REGISTRATION OTP
+// ==========================================
+router.post('/verify-otp', async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const cleanOtp = String(otp || '').trim();
+
+    if (!cleanEmail || !cleanOtp) {
+      return res.status(400).json({ message: 'Institutional email and 6-digit OTP are required.' });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ message: 'Registration record not found.' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: 'Account is already verified. Please sign in.' });
+    }
+
+    if (!user.otp || !user.otpExpires) {
+      return res.status(400).json({ message: 'No pending OTP verification request found.' });
+    }
+
+    if (user.otpExpires < Date.now()) {
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new OTP.' });
+    }
+
+    // Timing-safe comparison to prevent timing attacks
+    const isOtpValid =
+      user.otp.length === cleanOtp.length &&
+      crypto.timingSafeEqual(Buffer.from(user.otp), Buffer.from(cleanOtp));
+
+    if (!isOtpValid) {
+      return res.status(400).json({ message: 'Invalid verification code provided.' });
+    }
+
+    // Mark as verified and clear OTP fields
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpires = undefined;
     await user.save();
 
     const token = createToken(user);
 
-    return res.status(201).json({
-      message: 'CampusConnect account created successfully',
+    return res.status(200).json({
+      message: 'Account successfully verified.',
       data: {
         token,
         user: sanitizeProfile(user),
@@ -119,26 +257,94 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
+// ==========================================
+// 3. RESEND REGISTRATION OTP
+// ==========================================
+router.post('/resend-otp', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = String(email || '').toLowerCase().trim();
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ message: 'Account record not found.' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: 'Account is already verified. Please log in.' });
+    }
+
+    // Refresh OTP
+    const generatedOtp = crypto.randomInt(100000, 1000000).toString();
+    user.otp = generatedOtp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || `"CampusConnect SIESCOMS" <${process.env.BREVO_SMTP_LOGIN}>`,
+      to: cleanEmail,
+      subject: 'CampusConnect — Resent Verification OTP',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+          <h2>Your New Verification Code</h2>
+          <p>Hi ${user.full_name}, your refreshed verification code is:</p>
+          <h1 style="color: #047857; letter-spacing: 6px; font-family: monospace;">${generatedOtp}</h1>
+          <p>This code expires in 10 minutes.</p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({ message: 'A new verification code has been dispatched to your email.' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ==========================================
+// 4. UNIFIED LOGIN (STUDENT & PRE-PROVISIONED FACULTY)
+// ==========================================
 router.post('/login', async (req, res, next) => {
   try {
     const { Roll_Number, password } = req.body;
 
     if (!Roll_Number || !password) {
-      return res.status(400).json({ message: 'Institutional key/email address and password are required' });
+      return res.status(400).json({ message: 'Institutional identifier/email and password are required' });
     }
 
     const inputCredential = String(Roll_Number).trim();
     const normalizedRollNumber = inputCredential.toUpperCase();
 
-    // 4. DUAL LOOKUP CRITICAL MATRIX: Query strictly by tracking string input ID OR clean lowercase email records
+    // Dual lookup: by roll number or institutional email
     const user = await User.findOne({
       $or: [
         { Roll_Number: normalizedRollNumber },
-        { email: inputCredential.toLowerCase() }
-      ]
-    }).select('Roll_Number full_name email role joined_clubs joined_committee +password_hash +password_salt');
+        { email: inputCredential.toLowerCase() },
+      ],
+    }).select('Roll_Number full_name email role isFirstLogin isVerified organizationMemberships joined_clubs joined_committee +password_hash +password_salt');
 
-    if (!user || !user.validatePassword(password)) {
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid institutional login credentials provided' });
+    }
+
+    // Block unverified students
+    if (user.role === 'Student' && user.isVerified === false) {
+      return res.status(403).json({
+        message: 'Your institutional account has not been verified yet. Please enter the OTP sent to your email.',
+        requiresOtpVerification: true,
+        email: user.email,
+      });
+    }
+
+    // Password validation compatible with existing models
+    let isValidPassword = false;
+    if (typeof user.validatePassword === 'function') {
+      isValidPassword = user.validatePassword(password);
+    } else if (user.password_hash && user.password_salt) {
+      const hash = crypto.scryptSync(password, user.password_salt, 64).toString('hex');
+      isValidPassword = hash === user.password_hash;
+    }
+
+    if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid institutional login credentials provided' });
     }
 
@@ -149,6 +355,8 @@ router.post('/login', async (req, res, next) => {
       data: {
         token,
         user: sanitizeProfile(user),
+        // If true, frontend displays an optional "Set Personal Password" banner for pre-provisioned faculty
+        promptPasswordChange: user.role === 'Faculty' && user.isFirstLogin === true,
       },
     });
   } catch (error) {
@@ -156,6 +364,58 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
+// ==========================================
+// 5. VOLUNTARY / FIRST-LOGIN PASSWORD UPDATE
+// ==========================================
+router.post('/change-password', authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || String(newPassword).length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long.' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password_hash +password_salt');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Verify current password unless user is pre-provisioned and flagged for first login
+    if (!user.isFirstLogin && currentPassword) {
+      let isCurrentValid = false;
+      if (typeof user.validatePassword === 'function') {
+        isCurrentValid = user.validatePassword(currentPassword);
+      } else if (user.password_hash && user.password_salt) {
+        const hash = crypto.scryptSync(currentPassword, user.password_salt, 64).toString('hex');
+        isCurrentValid = hash === user.password_hash;
+      }
+      if (!isCurrentValid) {
+        return res.status(401).json({ message: 'Current password provided is incorrect.' });
+      }
+    }
+
+    // Apply new password
+    if (typeof user.setPassword === 'function') {
+      user.setPassword(newPassword);
+    } else {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.scryptSync(newPassword, salt, 64).toString('hex');
+      user.password_salt = salt;
+      user.password_hash = hash;
+    }
+
+    user.isFirstLogin = false;
+    await user.save();
+
+    return res.json({ message: 'Password updated successfully.' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ==========================================
+// 6. SESSION IDENTITY & DEMO RECOVERY
+// ==========================================
 router.get('/me', authenticate, async (req, res) => {
   return res.json({
     data: {
@@ -163,11 +423,7 @@ router.get('/me', authenticate, async (req, res) => {
     },
   });
 });
-// ==========================================
-// EMERGENCY PATCH: LIVE DEMO ACC_RECOVERY ENDPOINTS
-// ==========================================
 
-// 1. Initiate Recovery (Generates clean Token back to client layout)
 router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -175,35 +431,29 @@ router.post('/forgot-password', async (req, res, next) => {
       return res.status(400).json({ message: 'Institutional email is required' });
     }
 
-    // CRITICAL VALIDATION FIX: Explicitly include all required model properties in the memory select scope
     const user = await User.findOne({ email: email.toLowerCase().trim() }).select(
       'Roll_Number full_name email role +password_hash +password_salt'
     );
-    
+
     if (!user) {
       return res.status(404).json({ message: 'No account registered with this email address' });
     }
 
-    // Generate random safe demo token hex
     const token = crypto.randomBytes(20).toString('hex');
-    
     user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + 3600000; // Explicit 1 Hour Window
-    
-    // Disables external paths validation strictly for the token generation save step
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 Hour
+
     await user.save({ validateBeforeSave: false });
 
-    // DEMO INLINE OPTIMIZATION: Returns token directly so you can display/copy it in front of the coordinator!
     return res.json({
       message: 'Demo Recovery Engine: Token generated successfully',
-      token: token
+      token: token,
     });
   } catch (error) {
     return next(error);
   }
 });
 
-// 2. Commit Target Recovery Password Modification
 router.post('/reset-password/:token', async (req, res, next) => {
   try {
     const { token } = req.params;
@@ -213,27 +463,23 @@ router.post('/reset-password/:token', async (req, res, next) => {
       return res.status(400).json({ message: 'New password must be at least 8 characters long' });
     }
 
-    // CRITICAL VALIDATION FIX: Explicitly include all required model properties here as well
     const user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+      resetPasswordExpires: { $gt: Date.now() },
     }).select('Roll_Number full_name email role +password_hash +password_salt');
 
     if (!user) {
       return res.status(400).json({ message: 'Recovery token is invalid or has expired' });
     }
 
-    // Replicating model encryption to preserve password verification checks
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.scryptSync(password, salt, 64).toString('hex');
 
     user.password_salt = salt;
     user.password_hash = hash;
-    
-    // Clear token context from record
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
-    
+
     await user.save({ validateBeforeSave: false });
 
     return res.json({ message: 'Password updated successfully' });

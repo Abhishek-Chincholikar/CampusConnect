@@ -1,11 +1,5 @@
-// 1. Put this import at the very top of your file
-const crypto = require('crypto');
-
-// 2. This is the exact syntax to generate a random 20-byte token string
-const token = crypto.randomBytes(20).toString('hex');
-
 const mongoose = require('mongoose');
-
+const crypto = require('crypto');
 const { Schema } = mongoose;
 
 const userSchema = new Schema(
@@ -34,7 +28,7 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ['Student', 'Head', 'Faculty','Admin'],
+      enum: ['Student', 'Head', 'Faculty', 'Admin'],
       default: 'Student',
       index: true,
     },
@@ -46,6 +40,25 @@ const userSchema = new Schema(
       type: String,
       select: false,
     },
+    
+    // --- NEW SECURITY & OTP FIELDS ---
+    isFirstLogin: { 
+      type: Boolean, 
+      default: true 
+    },
+    isVerified: { 
+      type: Boolean, 
+      default: false 
+    },
+    otp: { 
+      type: String,
+      default: undefined
+    },
+    otpExpires: { 
+      type: Date,
+      default: undefined
+    },
+    
     resetPasswordToken: {
       type: String,
       default: null
@@ -54,6 +67,22 @@ const userSchema = new Schema(
       type: Date,
       default: null
     },
+    
+    // --- DYNAMIC LEADERSHIP MATRIX ---
+    organizationMemberships: [{
+      organization: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Organization' 
+      },
+      title: { 
+        type: String, 
+        default: 'Member' 
+      },
+      canModerate: { 
+        type: Boolean, 
+        default: false 
+      }
+    }],
     joined_clubs: [
       {
         type: Schema.Types.ObjectId,
@@ -101,6 +130,9 @@ userSchema.methods.toSafeProfile = function toSafeProfile() {
     full_name: this.full_name,
     email: this.email,
     role: this.role,
+    isFirstLogin: this.isFirstLogin,
+    isVerified: this.isVerified,
+    organizationMemberships: this.organizationMemberships,
     joined_clubs: this.joined_clubs,
     joined_committee: this.joined_committee,
   };
