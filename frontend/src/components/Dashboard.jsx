@@ -1,5 +1,5 @@
 import { FaBell } from 'react-icons/fa';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -336,7 +336,7 @@ function ReviewPanel({ applications, onStatusChange, onDeleteApplication, loadin
   );
 }
 
-function Dashboard({ session, onLogout }) {
+function Dashboard({ session, onLogout, onSessionUpdate }) {
   const [organizations, setOrganizations] = useState([]);
   const [applications, setApplications] = useState([]);
   const [reviewApplications, setReviewApplications] = useState([]);
@@ -357,9 +357,11 @@ function Dashboard({ session, onLogout }) {
 
   const token = session?.token;
   const user = session?.user;
+  const userRef = useRef(user);
+  userRef.current = user;
   
   const isModerator = user?.organizationMemberships?.some((m) => m.canModerate === true);
-  const canReview = ['Head', 'Faculty', 'Admin'].includes(user?.role) || isModerator;
+  const canReview = user?.role === 'Head' || isModerator;
   const canApply = ['Student', 'Head'].includes(user?.role);
 
   const unreadCount = useMemo(() => {
@@ -406,45 +408,40 @@ function Dashboard({ session, onLogout }) {
     },
     [token]
   );
-
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
+      let liveUser = userRef.current;
+
+      if (token) {
+        const meResponse = await request('/auth/me');
+        liveUser = meResponse.data?.user || userRef.current;
+        if (liveUser && onSessionUpdate) {
+          onSessionUpdate(liveUser);
+        }
+      }
+
+      const liveCanReview =
+        liveUser?.role === 'Head' ||
+        Boolean(liveUser?.organizationMemberships?.some((m) => m.canModerate === true));
+
       const organizationsResponse = await request('/organizations');
       setOrganizations((organizationsResponse.data || []).map(normalizeOrganization));
       const announcementsResponse = await request('/announcements');
       setAnnouncements(announcementsResponse.data || []);
       const reportsResponse = await request('/reports');
       setReports(reportsResponse.data || []);
-      
+
       if (token) {
         const applicationsResponse = await request('/applications/me');
         setApplications((applicationsResponse.data || []).map(normalizeApplication));
 
-        if (canReview) {
+        if (liveCanReview) {
           const reviewApplicationsResponse = await request('/applications');
           const parsedApps = (reviewApplicationsResponse.data || []).map(normalizeApplication);
-          const currentUserEmail = String(user?.email || '').toLowerCase().trim();
-
-          if (user?.role === 'Faculty' && currentUserEmail === 'nehac@sies.edu.in') {
-            const isolatedScope = parsedApps.filter(app => 
-              String(app.organizationName || '').toUpperCase().includes('POSH')
-            );
-            setReviewApplications(isolatedScope);
-          } else if (user?.role === 'Student' && isModerator) {
-            const moderateOrgIds = (user.organizationMemberships || [])
-              .filter((m) => m.canModerate)
-              .map((m) => String(m.organization?._id || m.organization));
-            
-            const isolatedScope = parsedApps.filter(app => 
-              moderateOrgIds.includes(String(app.organizationId))
-            );
-            setReviewApplications(isolatedScope);
-          } else {
-            setReviewApplications(parsedApps);
-          }
+          setReviewApplications(parsedApps);
         } else {
           setReviewApplications([]);
         }
@@ -457,7 +454,7 @@ function Dashboard({ session, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [canReview, isModerator, request, token, user?.email, user?.role, user?.organizationMemberships]);
+  }, [onSessionUpdate, request, token]);
 
   useEffect(() => {
     loadDashboard();

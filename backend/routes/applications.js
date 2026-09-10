@@ -9,31 +9,54 @@ const router = express.Router();
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const REVIEW_STATUSES = ['Pending', 'Tech_Round', 'Interview', 'Voting', 'Rejected'];
+const OBJECT_ID_HEX = /^[a-fA-F0-9]{24}$/;
+
+const resolveOrgId = (value) => {
+  if (!value) return null;
+  const raw = value._id || value;
+  const id = String(raw);
+  return OBJECT_ID_HEX.test(id) ? id : null;
+};
+
+const uniqueOrgIds = (values) => [...new Set(values.map(resolveOrgId).filter(Boolean))];
 
 const populateApplication = (query) =>
   query
-    .populate('user', 'full_name Roll_Number role joined_clubs joined_committee')
+    .populate('user', 'full_name Roll_Number role email joined_clubs joined_committee')
     .populate('organization', 'name type max_capacity faculty_coordinator');
 
-// Helper: Check review permissions dynamically for Admins, Faculty, Heads, and Student POCs
-const checkReviewAccess = async (user, organizationId = null) => {
-  if (['Admin', 'Head'].includes(user.role)) return true;
+// Helper: Check review permissions securely against the LIVE database (bypassing stale JWTs)
+const checkReviewAccess = async (userId, organizationId = null) => {
+  const freshUser = await User.findById(userId).lean();
+  if (!freshUser) return false;
 
-  if (user.role === 'Faculty') {
+  if (['Admin', 'Head'].includes(freshUser.role)) return true;
+
+  if (freshUser.role === 'Faculty') {
     if (!organizationId) return true;
     const org = await Organization.findById(organizationId).lean();
     if (!org) return false;
-    return String(org.faculty_coordinator || '').toLowerCase().trim() === String(user.email || '').toLowerCase().trim();
+
+    const coord = String(org.faculty_coordinator || '').toLowerCase().trim();
+    const email = String(freshUser.email || '').toLowerCase().trim();
+    const name = String(freshUser.full_name || '').toLowerCase().trim();
+    return coord.includes(email) || coord.includes(name) || name.includes(coord) || email.includes(coord);
   }
 
-  const isModerator = user.organizationMemberships?.some((m) => m.canModerate === true);
-  if (!isModerator) return false;
+  const isModerator = (freshUser.organizationMemberships || []).some((m) => m.canModerate === true);
+  const isHead = await Organization.exists({ student_head: freshUser._id });
+
+  if (!isModerator && !isHead) return false;
 
   if (organizationId) {
-    const allowedOrgIds = user.organizationMemberships
-      .filter((m) => m.canModerate)
-      .map((m) => String(m.organization._id || m.organization));
-    return allowedOrgIds.includes(String(organizationId));
+    const allowedOrgIds = uniqueOrgIds(
+      (freshUser.organizationMemberships || [])
+        .filter((m) => m.canModerate)
+        .map((m) => m.organization?._id || m.organization)
+    );
+
+    const headMatch = await Organization.exists({ _id: organizationId, student_head: freshUser._id });
+    return allowedOrgIds.includes(resolveOrgId(organizationId)) || Boolean(headMatch);
   }
 
   return true;
@@ -41,40 +64,51 @@ const checkReviewAccess = async (user, organizationId = null) => {
 
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const user = req.user;
-    const { status, organizationId } = req.query;
-
-    const hasGlobalAccess = await checkReviewAccess(user);
+    const hasGlobalAccess = await checkReviewAccess(req.user._id);
     if (!hasGlobalAccess) {
       return res.status(403).json({ message: 'You are not allowed to perform this action' });
     }
 
-    const filter = {};
+    // Fetch fresh user data to guarantee we never rely on a stale token
+    const freshUser = await User.findById(req.user._id).lean();
+    const { status, organizationId } = req.query;
 
-    if (status) {
-      filter.status = status;
-    }
+    const filter = {};
+    if (status) filter.status = status;
 
     if (organizationId) {
       if (!isValidObjectId(organizationId)) {
         return res.status(400).json({ message: 'Invalid organization id' });
       }
-      const hasOrgAccess = await checkReviewAccess(user, organizationId);
+      const hasOrgAccess = await checkReviewAccess(freshUser._id, organizationId);
       if (!hasOrgAccess) {
         return res.status(403).json({ message: 'Forbidden: You cannot moderate this organization' });
       }
       filter.organization = organizationId;
-    } else if (user.role === 'Faculty') {
+    } else if (freshUser.role === 'Faculty') {
       const facultyOrgs = await Organization.find({
-        faculty_coordinator: { $regex: new RegExp(`^${user.email}$`, 'i') }
+        $or: [
+          { faculty_coordinator: { $regex: new RegExp(freshUser.email || '', 'i') } },
+          { faculty_coordinator: { $regex: new RegExp(freshUser.full_name || '', 'i') } }
+        ]
       }).lean();
-      const allowedOrgIds = facultyOrgs.map((o) => o._id);
-      filter.organization = { $in: allowedOrgIds };
-    } else if (user.role === 'Student') {
-      const allowedOrgIds = (user.organizationMemberships || [])
+      filter.organization = { $in: facultyOrgs.map(o => o._id) };
+    } else if (freshUser.role === 'Student') {
+      const membershipOrgIds = (freshUser.organizationMemberships || [])
         .filter((m) => m.canModerate)
-        .map((m) => m.organization._id || m.organization);
-      filter.organization = { $in: allowedOrgIds };
+        .map((m) => m.organization?._id || m.organization);
+
+      const headedOrgs = await Organization.find({ student_head: freshUser._id }, '_id').lean();
+      const combinedOrgIds = uniqueOrgIds([
+        ...membershipOrgIds,
+        ...headedOrgs.map((org) => org._id),
+      ]);
+
+      if (combinedOrgIds.length === 0) {
+        return res.json({ data: [] });
+      }
+
+      filter.organization = { $in: combinedOrgIds };
     }
 
     const applications = await populateApplication(
@@ -146,7 +180,6 @@ router.post('/', authenticate, async (req, res, next) => {
     if (error.code === 11000) {
       return res.status(409).json({ message: 'You have already applied to this organization' });
     }
-
     return next(error);
   }
 });
@@ -166,7 +199,7 @@ router.put('/:id/status', authenticate, async (req, res, next) => {
       return res.status(404).json({ message: 'Application request not found' });
     }
 
-    const hasAccess = await checkReviewAccess(req.user, application.organization);
+    const hasAccess = await checkReviewAccess(req.user._id, application.organization);
     if (!hasAccess) {
       return res.status(403).json({ message: 'Forbidden: You cannot modify applications for this organization' });
     }
@@ -228,7 +261,7 @@ router.put('/:id/approve', authenticate, async (req, res, next) => {
         throw error;
       }
 
-      const hasAccess = await checkReviewAccess(req.user, joinRequest.organization);
+      const hasAccess = await checkReviewAccess(req.user._id, joinRequest.organization);
       if (!hasAccess) {
         const error = new Error('Forbidden: You cannot approve applications for this organization');
         error.statusCode = 403;
@@ -326,7 +359,7 @@ router.delete('/:id', authenticate, async (req, res, next) => {
       return res.status(404).json({ message: 'Application request not found' });
     }
 
-    const hasAccess = await checkReviewAccess(req.user, application.organization);
+    const hasAccess = await checkReviewAccess(req.user._id, application.organization);
     if (!hasAccess) {
       return res.status(403).json({ message: 'Forbidden: You cannot delete applications for this organization' });
     }

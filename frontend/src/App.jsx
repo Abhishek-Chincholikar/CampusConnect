@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 import AdminUsers from './pages/AdminUsers.jsx';
@@ -50,6 +50,10 @@ function App() {
   const handleAuthenticated = (payload) => {
     setSession(payload);
   };
+
+  const handleSessionUser = useCallback((user) => {
+    setSession((current) => (current ? { ...current, user } : current));
+  }, []);
 
   const handleLogout = () => {
     setSession(null);
@@ -133,6 +137,7 @@ function App() {
     <Dashboard
       session={session}
       onLogout={handleLogout}
+      onSessionUpdate={handleSessionUser}
     />
   );
 }
