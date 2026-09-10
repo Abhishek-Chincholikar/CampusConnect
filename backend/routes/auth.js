@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
+const TempUser = require('../models/TempUser'); 
 
 const router = express.Router();
 
@@ -79,7 +80,7 @@ const sanitizeProfile = (user) => {
 };
 
 // ==========================================
-// 1. STUDENT REGISTRATION (WITH NODEMAILER OTP)
+// 1. STRICT STUDENT REGISTRATION (TEMP STORAGE)
 // ==========================================
 router.post('/register', async (req, res, next) => {
   try {
@@ -88,87 +89,47 @@ router.post('/register', async (req, res, next) => {
     const normalizedRollNumber = normalizeRollNumber(Roll_Number);
     const cleanEmail = String(email || '').toLowerCase().trim();
 
-    // Student roll number pattern (MCA/MMS or alphanumeric)
     const isStudentRoll = /^(MCA|MMS)\d{5}$/i.test(normalizedRollNumber) || /^[A-Z0-9_\-]+$/i.test(normalizedRollNumber);
     if (!isStudentRoll) {
-      return res.status(400).json({
-        message: 'Identifier must be a valid institutional roll number (e.g., MCA24001)',
-      });
+      return res.status(400).json({ message: 'Identifier must be a valid institutional roll number (e.g., MCA24001)' });
     }
 
-    // STRICT DOMAIN LOCK: Self-registration is strictly for students
     if (!cleanEmail.endsWith('@siescoms.sies.edu.in')) {
-      return res.status(400).json({
-        message: 'Student registration requires an official institutional email (@siescoms.sies.edu.in). Faculty accounts are pre-provisioned by Administration.',
-      });
-    }
-
-    if (!normalizedRollNumber || !full_name || !password) {
-      return res.status(400).json({
-        message: 'Roll number, full name, institutional email, and password are required',
-      });
+      return res.status(400).json({ message: 'Student registration requires an official institutional email (@siescoms.sies.edu.in).' });
     }
 
     if (String(password).length < 8) {
-      return res.status(400).json({
-        message: 'Password must be at least 8 characters long',
-      });
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
     }
 
-    // Check if user already exists
-    let existingUser = await User.findOne({
+    // STRICT CHECK: Does a user already exist in the main database?
+    const existingUser = await User.findOne({
       $or: [{ Roll_Number: normalizedRollNumber }, { email: cleanEmail }],
     });
 
-    if (existingUser && existingUser.isVerified) {
-      return res.status(409).json({
-        message: 'An active verified account with this Roll Number or Email already exists.',
-      });
+    if (existingUser) {
+      return res.status(409).json({ message: 'An account with this Roll Number or Email already exists. Please sign in.' });
     }
 
-    // Cryptographically secure 6-digit OTP
+    // Hash password for temporary storage
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+
     const generatedOtp = crypto.randomInt(100000, 1000000).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10-minute expiry
 
-    if (existingUser && !existingUser.isVerified) {
-      // User registered before but didn't verify: refresh credentials & OTP
-      existingUser.full_name = full_name;
-      existingUser.Roll_Number = normalizedRollNumber;
-      if (typeof existingUser.setPassword === 'function') {
-        existingUser.setPassword(password);
-      } else {
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-        existingUser.password_salt = salt;
-        existingUser.password_hash = hash;
-      }
-      existingUser.otp = generatedOtp;
-      existingUser.otpExpires = otpExpiry;
-      await existingUser.save();
-    } else {
-      // Create new unverified student record
-      const newUser = new User({
-        Roll_Number: normalizedRollNumber,
-        full_name,
-        email: cleanEmail,
-        role: 'Student',
-        isVerified: false,
-        otp: generatedOtp,
-        otpExpires: otpExpiry,
-      });
+    // Clear any previous failed attempts for this email, then save to Temp storage
+    await TempUser.deleteMany({ email: cleanEmail });
+    
+    const tempRecord = new TempUser({
+      Roll_Number: normalizedRollNumber,
+      full_name,
+      email: cleanEmail,
+      password_hash: hash,
+      password_salt: salt,
+      otp: generatedOtp
+    });
+    await tempRecord.save();
 
-      if (typeof newUser.setPassword === 'function') {
-        newUser.setPassword(password);
-      } else {
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-        newUser.password_salt = salt;
-        newUser.password_hash = hash;
-      }
-      await newUser.save();
-    }
-
-    // Dispatch branded transactional email via Brevo
     const mailOptions = {
       from: process.env.EMAIL_FROM || `"CampusConnect SIESCOMS" <${process.env.BREVO_SMTP_LOGIN}>`,
       to: cleanEmail,
@@ -180,9 +141,7 @@ router.post('/register', async (req, res, next) => {
           <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 24px;">
             <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #047857;">${generatedOtp}</span>
           </div>
-          <p style="color: #64748b; font-size: 12px; margin-bottom: 4px;">This code is valid for <strong>10 minutes</strong>. If you did not initiate this request, you can safely disregard this message.</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="color: #94a3b8; font-size: 11px; text-align: center;">SIESCOMS Institutional Student Governance Platform</p>
+          <p style="color: #64748b; font-size: 12px; margin-bottom: 4px;">This code is valid for <strong>10 minutes</strong>.</p>
         </div>
       `,
     };
@@ -199,7 +158,7 @@ router.post('/register', async (req, res, next) => {
 });
 
 // ==========================================
-// 2. VERIFY REGISTRATION OTP
+// 2. VERIFY REGISTRATION OTP & COMMIT TO MAIN DB
 // ==========================================
 router.post('/verify-otp', async (req, res, next) => {
   try {
@@ -211,45 +170,44 @@ router.post('/verify-otp', async (req, res, next) => {
       return res.status(400).json({ message: 'Institutional email and 6-digit OTP are required.' });
     }
 
-    const user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      return res.status(404).json({ message: 'Registration record not found.' });
+    // Look for the user in the temporary holding area
+    const tempUser = await TempUser.findOne({ email: cleanEmail });
+
+    if (!tempUser) {
+      return res.status(400).json({ message: 'Invalid or expired OTP. Please register again.' });
     }
 
-    if (user.isVerified) {
-      return res.status(400).json({ message: 'Account is already verified. Please sign in.' });
-    }
-
-    if (!user.otp || !user.otpExpires) {
-      return res.status(400).json({ message: 'No pending OTP verification request found.' });
-    }
-
-    if (user.otpExpires < Date.now()) {
-      return res.status(400).json({ message: 'Verification code has expired. Please request a new OTP.' });
-    }
-
-    // Timing-safe comparison to prevent timing attacks
-    const isOtpValid =
-      user.otp.length === cleanOtp.length &&
-      crypto.timingSafeEqual(Buffer.from(user.otp), Buffer.from(cleanOtp));
+    const isOtpValid = tempUser.otp.length === cleanOtp.length && 
+                       crypto.timingSafeEqual(Buffer.from(tempUser.otp), Buffer.from(cleanOtp));
 
     if (!isOtpValid) {
       return res.status(400).json({ message: 'Invalid verification code provided.' });
     }
 
-    // Mark as verified and clear OTP fields
-    user.isVerified = true;
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    await user.save();
+    // OTP is valid! Move them to the main User database permanently
+    const newUser = new User({
+      Roll_Number: tempUser.Roll_Number,
+      full_name: tempUser.full_name,
+      email: tempUser.email,
+      role: 'Student',
+      isVerified: true,
+      isFirstLogin: true,
+      password_hash: tempUser.password_hash,
+      password_salt: tempUser.password_salt
+    });
+    
+    await newUser.save();
 
-    const token = createToken(user);
+    // Clean up the temporary record
+    await TempUser.deleteMany({ email: cleanEmail });
+
+    const token = createToken(newUser);
 
     return res.status(200).json({
       message: 'Account successfully verified.',
       data: {
         token,
-        user: sanitizeProfile(user),
+        user: sanitizeProfile(newUser),
       },
     });
   } catch (error) {
