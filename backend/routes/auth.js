@@ -16,8 +16,8 @@ console.log("SMTP Key exists?:", !!process.env.BREVO_SMTP_KEY);
 
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false, // TLS via STARTTLS
+  port: 2525, // <-- The alternative SMTP port that bypasses cloud blocks
+  secure: false, // <-- Must be false when using 2525 (it uses STARTTLS instead)
   pool: true,
   maxConnections: 3,
   auth: {
