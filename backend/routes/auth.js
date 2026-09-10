@@ -153,6 +153,7 @@ router.post('/register', async (req, res, next) => {
       data: { email: cleanEmail },
     });
   } catch (error) {
+    console.error("🔥 REGISTRATION CRASH:", error);
     return next(error);
   }
 });
