@@ -64,12 +64,17 @@ const checkReviewAccess = async (userId, organizationId = null) => {
 
 router.get('/', authenticate, async (req, res, next) => {
   try {
+    console.log('\n==================== [GET /applications] ====================');
+    console.log('1. Requester from Token:', req.user?.full_name, `(${req.user?._id})`);
+
     const hasGlobalAccess = await checkReviewAccess(req.user._id);
+    console.log('2. Has Global Review Access:', hasGlobalAccess);
+
     if (!hasGlobalAccess) {
+      console.log('❌ Access Denied: checkReviewAccess returned false.');
       return res.status(403).json({ message: 'You are not allowed to perform this action' });
     }
 
-    // Fetch fresh user data to guarantee we never rely on a stale token
     const freshUser = await User.findById(req.user._id).lean();
     const { status, organizationId } = req.query;
 
@@ -82,6 +87,7 @@ router.get('/', authenticate, async (req, res, next) => {
       }
       const hasOrgAccess = await checkReviewAccess(freshUser._id, organizationId);
       if (!hasOrgAccess) {
+        console.log(`❌ Forbidden: User cannot moderate organizationId: ${organizationId}`);
         return res.status(403).json({ message: 'Forbidden: You cannot moderate this organization' });
       }
       filter.organization = organizationId;
@@ -92,31 +98,73 @@ router.get('/', authenticate, async (req, res, next) => {
           { faculty_coordinator: { $regex: new RegExp(freshUser.full_name || '', 'i') } }
         ]
       }).lean();
-      filter.organization = { $in: facultyOrgs.map(o => o._id) };
+      filter.organization = { $in: facultyOrgs.map((o) => o._id) };
+      console.log('Faculty Allowed Org IDs:', facultyOrgs.map((o) => o._id.toString()));
     } else if (freshUser.role === 'Student') {
+      console.log('3. Student DB Memberships:', JSON.stringify(freshUser.organizationMemberships, null, 2));
+
+      // 1. Explicit ID matches
       const membershipOrgIds = (freshUser.organizationMemberships || [])
         .filter((m) => m.canModerate)
-        .map((m) => m.organization?._id || m.organization);
+        .map((m) => String(m.organization?._id || m.organization))
+        .filter(Boolean);
 
+      // 2. Head role matches
       const headedOrgs = await Organization.find({ student_head: freshUser._id }, '_id').lean();
-      const combinedOrgIds = uniqueOrgIds([
-        ...membershipOrgIds,
-        ...headedOrgs.map((org) => org._id),
-      ]);
+      const headedOrgIds = headedOrgs.map((org) => String(org._id));
 
-      if (combinedOrgIds.length === 0) {
+      // 3. Dynamic Title Match: If membership title mentions 'CSR', find the CSR organization directly
+      const titleMatches = [];
+      const userTitles = (freshUser.organizationMemberships || [])
+        .filter((m) => m.canModerate)
+        .map((m) => String(m.title || ''));
+
+      for (const t of userTitles) {
+        if (/CSR/i.test(t) || /MCA POC/i.test(t)) {
+          // Find the active CSR organization regardless of its new ID
+          const csrOrg = await Organization.findOne({ name: /CSR/i }, '_id').lean();
+          if (csrOrg) {
+            console.log(`🔎 Dynamic Title Match: Linked user to active CSR Committee ID -> ${csrOrg._id}`);
+            titleMatches.push(String(csrOrg._id));
+          }
+        }
+      }
+
+      const rawCombined = [...new Set([...membershipOrgIds, ...headedOrgIds, ...titleMatches])];
+      console.log('4. Combined Moderate Org IDs (Including Dynamic Matches):', rawCombined);
+
+      if (rawCombined.length === 0) {
+        console.log('⚠️ No moderate permissions found. Returning empty array.');
         return res.json({ data: [] });
       }
 
-      filter.organization = { $in: combinedOrgIds };
+      const objectIdList = rawCombined
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      filter.organization = { $in: [...objectIdList, ...rawCombined] };
     }
+
+    console.log('5. Final DB Query Filter:', JSON.stringify(filter));
+
+    // Global diagnostic block (moved to safe scope)
+    const allApps = await JoinRequest.find({}).lean();
+    console.log("=== ALL EXISTING APPLICATIONS IN DB ===");
+    allApps.forEach(a => {
+      console.log(`App ID: ${a._id} | User: ${a.user} | Org in App: ${a.organization}`);
+    });
+    console.log("========================================");
 
     const applications = await populateApplication(
       JoinRequest.find(filter).sort({ updatedAt: -1 })
     ).lean();
 
+    console.log(`6. Result: Found ${applications.length} applications matching filter.`);
+    console.log('=============================================================\n');
+
     return res.json({ data: applications });
   } catch (error) {
+    console.error('🔥 Error in GET /applications:', error);
     return next(error);
   }
 });
