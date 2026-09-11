@@ -19,7 +19,10 @@ const sendEmailViaRest = async (toEmail, subject, htmlContent) => {
     const response = await axios.post(
       'https://api.brevo.com/v3/smtp/email',
       {
-        sender: { name: "CampusConnect SIESCOMS", email: process.env.BREVO_SMTP_LOGIN || "b8a970001@smtp-brevo.com" }, 
+        sender: { 
+          name: "SIESCOMS", 
+          email: process.env.EMAIL_FROM || "abhuchincholikar@gmail.com" 
+        },
         to: [{ email: toEmail }],
         subject: subject,
         htmlContent: htmlContent
